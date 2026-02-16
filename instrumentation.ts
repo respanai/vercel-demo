@@ -51,7 +51,7 @@ export function register() {
         return pathOrUrl + " " + name;
       }
       // Paths to trace: Integration demos and Banking chatbot workflow
-      const tracedPaths = ["/api/openai/", "/api/banking-chatbot"];
+      const tracedPaths = ["/api/openai/", "/api/banking-chatbot", "/api/sec-compliance"];
       const integrationTraceIds = new Set<string>();
       for (const span of spans) {
         const pathUrlName = getPathUrlOrName(span);
