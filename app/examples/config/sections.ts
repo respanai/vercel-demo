@@ -25,4 +25,9 @@ export const EXAMPLE_PAGES: ExamplePage[] = [
     description: "Multi-step agent: classifies email, enriches company, scores ICP, analyzes intent, generates outreach.",
     href: "/examples/warmly-lead-qualification",
   },
+  {
+    label: "Prompt Optimization Agent",
+    description: "Conversational agent for prompt evaluation and iterative improvement with multi-metric radar charts.",
+    href: "/examples/prompt-optimizer",
+  },
 ];
