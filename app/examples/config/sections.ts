@@ -20,12 +20,7 @@ export const EXAMPLE_PAGES: ExamplePage[] = [
     description: "Paste marketing content; AI flags Rule 206(4)-1 violations with inline highlighting.",
     href: "/examples/sec-compliance",
   },
-  {
-    label: "GEPA Prompt Optimizer",
-    description: "Auto-optimize prompts using evolutionary search with LLM reflection and Pareto selection.",
-    href: "/examples/gepa-optimizer",
-  },
-  {
+{
     label: "Prompt Optimization Agent",
     description: "Conversational agent for prompt evaluation and iterative improvement with multi-metric radar charts.",
     href: "/examples/prompt-optimizer",
