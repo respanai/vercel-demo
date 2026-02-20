@@ -20,4 +20,9 @@ export const EXAMPLE_PAGES: ExamplePage[] = [
     description: "Paste marketing content; AI flags Rule 206(4)-1 violations with inline highlighting.",
     href: "/examples/sec-compliance",
   },
+  {
+    label: "Warmly lead qualification",
+    description: "Multi-step agent: classifies email, enriches company, scores ICP, analyzes intent, generates outreach.",
+    href: "/examples/warmly-lead-qualification",
+  },
 ];
