@@ -124,18 +124,27 @@ export function DevelopPromptsSection(props: { keywordsaiApiKey: string }) {
       setLoading("create-version");
       setR6(null);
       try {
-        const data = await postProxy("/api/keywordsai/prompts/versions/create", keywordsaiApiKey, {
+        const createData = await postProxy("/api/keywordsai/prompts/versions/create", keywordsaiApiKey, {
           prompt_id: promptId,
           description: "Version created by vercel-demo (fixed inputs).",
           messages: demoMessages,
           model: "gpt-4o-mini",
           stream: false,
           temperature: 0.7,
-          deploy: false,
         });
-        setR6(data);
-        const id = pickId((data as any)?.response, ["id", "prompt_version_id", "promptVersionId", "version"]);
-        if (id) setVersionId(id);
+        const id = pickId((createData as any)?.response, ["id", "prompt_version_id", "promptVersionId", "version"]);
+        if (id) {
+          setVersionId(id);
+          // Deploy the newly created version via PATCH
+          const deployData = await postProxy("/api/keywordsai/prompts/versions/update", keywordsaiApiKey, {
+            prompt_id: promptId,
+            prompt_version_id: id,
+            deploy: true,
+          });
+          setR6({ create: createData, deploy: deployData });
+        } else {
+          setR6(createData);
+        }
       } finally {
         setLoading(null);
       }
