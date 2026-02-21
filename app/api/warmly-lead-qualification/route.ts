@@ -280,10 +280,19 @@ async function step1_classifyEmail(
       async () => {
         const response = await client.chat.completions.create({
           model: "openai/gpt-5.1",
-          messages: [
-            { role: "system", content: EMAIL_CLASSIFIER_PROMPT },
-            { role: "user", content: `Lead: ${lead.name} <${lead.email}>, Company: ${lead.company}, Role: ${lead.role}. Classify this email.` },
-          ],
+          messages: [],
+          // KeywordsAI prompt management
+          // @ts-expect-error
+          prompt: {
+            prompt_id: "2b3faab6e8204fb0bfc038191676ccbc",
+            variables: {
+              lead_name: lead.name,
+              lead_email: lead.email,
+              lead_company: lead.company,
+              lead_role: lead.role,
+            },
+            override: true,
+          },
           // KeywordsAI gateway parameters
           customer_identifier: CUSTOMER_IDENTIFIER,
           thread_identifier: threadId,
@@ -324,10 +333,17 @@ async function step2_enrichCompany(
 
         const response = await client.chat.completions.create({
           model: "openai/gpt-5.1",
-          messages: [
-            { role: "system", content: `You are a company enrichment specialist. Given raw company data, synthesize it into a structured assessment. Respond with JSON: { "estimatedSize": "1-10"|"11-50"|"51-200"|"201-1000"|"1000+", "industry": string, "likelyTechStack": string[], "fundingStage": "bootstrapped"|"seed"|"series-a"|"series-b+"|"public"|"unknown", "headquarters": string }` },
-            { role: "user", content: `Company: ${lead.company}, Role: ${lead.role}\n\nEnrichment data from database:\n${JSON.stringify(companyData, null, 2)}\n\nSynthesize into structured output.` },
-          ],
+          messages: [],
+          // @ts-expect-error Keywords AI prompt management
+          prompt: {
+            prompt_id: "10a9ed2b03384336b324200866560360",
+            variables: {
+              lead_company: lead.company,
+              lead_role: lead.role,
+              companyData: JSON.stringify(companyData, null, 2),
+            },
+            override: true,
+          },
           // KeywordsAI gateway parameters
           customer_identifier: CUSTOMER_IDENTIFIER,
           thread_identifier: threadId,
@@ -366,10 +382,22 @@ async function step3_scoreICP(
       async () => {
         const response = await client.chat.completions.create({
           model: "openai/gpt-5.1",
-          messages: [
-            { role: "system", content: ICP_SCORER_PROMPT },
-            { role: "user", content: `Lead: ${lead.name}, Role: ${lead.role}, Company: ${lead.company}\n\nCompany Data:\n- Size: ${enrichment.estimatedSize}\n- Industry: ${enrichment.industry}\n- Tech Stack: ${enrichment.likelyTechStack.join(", ")}\n- Funding: ${enrichment.fundingStage}\n- HQ: ${enrichment.headquarters}` },
-          ],
+          messages: [],
+          // @ts-expect-error Keywords AI prompt management
+          prompt: {
+            prompt_id: "2cb8f65cf1e14df5af637fa813c7c14c",
+            variables: {
+              lead_name: lead.name,
+              lead_role: lead.role,
+              lead_company: lead.company,
+              enrichment_estimatedSize: enrichment.estimatedSize,
+              enrichment_industry: enrichment.industry,
+              enrichment_likelyTechStack: enrichment.likelyTechStack.join(", "),
+              enrichment_fundingStage: enrichment.fundingStage,
+              enrichment_headquarters: enrichment.headquarters,
+            },
+            override: true,
+          },
           // KeywordsAI gateway parameters
           customer_identifier: CUSTOMER_IDENTIFIER,
           thread_identifier: threadId,
@@ -408,10 +436,23 @@ async function step4_analyzeIntent(
       async () => {
         const response = await client.chat.completions.create({
           model: "openai/gpt-5.1",
-          messages: [
-            { role: "system", content: INTENT_ANALYZER_PROMPT },
-            { role: "user", content: `Lead: ${lead.name}, Company: ${lead.company} (${enrichment.industry}, ${enrichment.estimatedSize}), Role: ${lead.role}\n\nBehavioral signals:\n- Website visits: ${lead.websiteVisits}\n- Pages viewed: ${lead.pagesViewed.join(", ")}\n- LinkedIn: ${lead.linkedinActivity || "No activity"}\n${lead.message ? `- Inbound message: "${lead.message}"` : "- No inbound message"}` },
-          ],
+          messages: [],
+          // @ts-expect-error Keywords AI prompt management
+          prompt: {
+            prompt_id: "0e953c709491427486cae50189f02d2c",
+            variables: {
+              lead_name: lead.name,
+              lead_company: lead.company,
+              enrichment_industry: enrichment.industry,
+              enrichment_estimatedSize: enrichment.estimatedSize,
+              lead_role: lead.role,
+              lead_websiteVisits: String(lead.websiteVisits),
+              lead_pagesViewed: lead.pagesViewed.join(", "),
+              lead_linkedinActivity: lead.linkedinActivity || "No activity",
+              lead_message: lead.message || "No inbound message",
+            },
+            override: true,
+          },
           // KeywordsAI gateway parameters
           customer_identifier: CUSTOMER_IDENTIFIER,
           thread_identifier: threadId,
@@ -453,20 +494,35 @@ async function step5_generateOutreach(
       async () => {
         const response = await client.chat.completions.create({
           model: "openai/gpt-5.1",
-          messages: [
-            { role: "system", content: OUTREACH_GENERATOR_PROMPT },
-            { role: "user", content: `LEAD: ${lead.name} <${lead.email}>, ${lead.role} at ${lead.company}
-
-STEP 1 — EMAIL: ${emailResult.type} (confidence: ${emailResult.confidence})
-STEP 2 — COMPANY: ${enrichment.estimatedSize} employees, ${enrichment.industry}, Funding: ${enrichment.fundingStage}
-STEP 3 — ICP: ${icpResult.icpScore}/100 (${icpResult.tier}-tier), Fit: ${icpResult.fitReasons.join("; ")}, Anti: ${icpResult.antiReasons.join("; ")}
-STEP 4 — INTENT: ${intentResult.intentScore}/100, Stage: ${intentResult.buyingStage}, Urgency: ${intentResult.urgency}, Signals: ${intentResult.hotSignals.join("; ")}
-
-BEHAVIORAL DATA:
-- ${lead.websiteVisits} visits: ${lead.pagesViewed.join(", ")}
-- LinkedIn: ${lead.linkedinActivity || "None"}
-${lead.message ? `- Message: "${lead.message}"` : ""}` },
-          ],
+          messages: [],
+          // @ts-expect-error Keywords AI prompt management
+          prompt: {
+            prompt_id: "9a9f6eb476e94abaae2499c8d8a885fd",
+            variables: {
+              lead_name: lead.name,
+              lead_email: lead.email,
+              lead_role: lead.role,
+              lead_company: lead.company,
+              emailResult_type: emailResult.type,
+              emailResult_confidence: String(emailResult.confidence),
+              enrichment_estimatedSize: enrichment.estimatedSize,
+              enrichment_industry: enrichment.industry,
+              enrichment_fundingStage: enrichment.fundingStage,
+              icpResult_icpScore: String(icpResult.icpScore),
+              icpResult_tier: icpResult.tier,
+              icpResult_fitReasons: icpResult.fitReasons.join("; "),
+              icpResult_antiReasons: icpResult.antiReasons.join("; "),
+              intentResult_intentScore: String(intentResult.intentScore),
+              intentResult_buyingStage: intentResult.buyingStage,
+              intentResult_urgency: intentResult.urgency,
+              intentResult_hotSignals: intentResult.hotSignals.join("; "),
+              lead_websiteVisits: String(lead.websiteVisits),
+              lead_pagesViewed: lead.pagesViewed.join(", "),
+              lead_linkedinActivity: lead.linkedinActivity || "None",
+              lead_message: lead.message || "",
+            },
+            override: true,
+          },
           // KeywordsAI gateway parameters
           customer_identifier: CUSTOMER_IDENTIFIER,
           thread_identifier: threadId,
