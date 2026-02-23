@@ -435,9 +435,8 @@ async function step4_analyzeIntent(
     tracer.withKeywordsAISpanAttributes(
       async () => {
         const response = await client.chat.completions.create({
-          model: "openai/gpt-5.1",
           messages: [],
-          // @ts-expect-error Keywords AI prompt management
+          // @ts-expect-error
           prompt: {
             prompt_id: "0e953c709491427486cae50189f02d2c",
             variables: {
