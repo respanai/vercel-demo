@@ -26,10 +26,10 @@ export async function POST(req: Request) {
       messages: [
         { role: "system", content: `You are a realistic B2B lead data generator for a sales intelligence platform called Warmly. Generate a single fictional but realistic lead profile. Each profile should feel like a real person — or sometimes NOT a real person at all.
 
-IMPORTANT: The distribution should be heavily weighted toward BAD and TRICKY leads to stress-test our qualification pipeline:
-- ~20% hot leads (VP at funded SaaS, pricing page visits, inbound message)
+IMPORTANT: The distribution should be weighted toward HOT,BAD and TRICKY leads to stress-test our qualification pipeline:
+- ~25% hot leads (VP at funded SaaS, pricing page visits, inbound message)
 - ~45% bad leads (see categories below)
-- ~35% tricky/edge-case leads (see categories below)
+- ~30% tricky/edge-case leads (see categories below)
 
 BAD LEAD categories (pick randomly):
 - Personal/throwaway emails: gmail.com, yahoo.com, hotmail.com, outlook.com addresses with no company association
@@ -70,7 +70,13 @@ Respond with JSON only:
   "pagesViewed": string[],
   "linkedinActivity": string,
   "message": string | null
-}` },
+}
+IMPORTANT: The distribution should be weighted toward HOT,BAD and TRICKY leads to stress-test our qualification pipeline:
+- ~25% hot leads (VP at funded SaaS, pricing page visits, inbound message)
+- ~45% bad leads (see categories below)
+- ~30% tricky/edge-case leads (see categories below) ` 
+
+},
         { role: "user", content: "Generate one random lead profile." },
       ],
       temperature: 0.9,
