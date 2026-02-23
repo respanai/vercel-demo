@@ -281,8 +281,7 @@ async function step1_classifyEmail(
         const response = await client.chat.completions.create({
           model: "openai/gpt-5.1",
           messages: [],
-          // KeywordsAI prompt management
-          // @ts-expect-error
+          // @ts-ignore - Keywords AI prompt management
           prompt: {
             prompt_id: "2b3faab6e8204fb0bfc038191676ccbc",
             variables: {
@@ -334,7 +333,7 @@ async function step2_enrichCompany(
         const response = await client.chat.completions.create({
           model: "openai/gpt-5.1",
           messages: [],
-          // @ts-expect-error Keywords AI prompt management
+          // @ts-ignore - Keywords AI prompt management
           prompt: {
             prompt_id: "10a9ed2b03384336b324200866560360",
             variables: {
@@ -383,7 +382,7 @@ async function step3_scoreICP(
         const response = await client.chat.completions.create({
           model: "openai/gpt-5.1",
           messages: [],
-          // @ts-expect-error Keywords AI prompt management
+          // @ts-ignore - Keywords AI prompt management
           prompt: {
             prompt_id: "2cb8f65cf1e14df5af637fa813c7c14c",
             variables: {
@@ -436,7 +435,7 @@ async function step4_analyzeIntent(
       async () => {
         const response = await client.chat.completions.create({
           messages: [],
-          // @ts-expect-error
+            // @ts-ignore - Keywords AI prompt management
           prompt: {
             prompt_id: "0e953c709491427486cae50189f02d2c",
             variables: {
@@ -494,7 +493,7 @@ async function step5_generateOutreach(
         const response = await client.chat.completions.create({
           model: "openai/gpt-5.1",
           messages: [],
-          // @ts-expect-error Keywords AI prompt management
+          // @ts-ignore - Keywords AI prompt management
           prompt: {
             prompt_id: "9a9f6eb476e94abaae2499c8d8a885fd",
             variables: {

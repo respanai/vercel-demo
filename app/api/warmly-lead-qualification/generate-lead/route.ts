@@ -22,22 +22,43 @@ export async function POST(req: Request) {
 
   try {
     const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.2",
       messages: [
-        { role: "system", content: `You are a realistic B2B lead data generator for a sales intelligence platform called Warmly. Generate a single fictional but realistic lead profile. Each profile should feel like a real person at a real company.
+        { role: "system", content: `You are a realistic B2B lead data generator for a sales intelligence platform called Warmly. Generate a single fictional but realistic lead profile. Each profile should feel like a real person — or sometimes NOT a real person at all.
 
-Rules:
-- Vary the lead quality: some should be hot leads (VP at funded SaaS, pricing page visits, inbound message), some mid-tier (founder browsing blog), some bad fits (generic email, no signals, unrelated industry)
+IMPORTANT: The distribution should be heavily weighted toward BAD and TRICKY leads to stress-test our qualification pipeline:
+- ~20% hot leads (VP at funded SaaS, pricing page visits, inbound message)
+- ~45% bad leads (see categories below)
+- ~35% tricky/edge-case leads (see categories below)
+
+BAD LEAD categories (pick randomly):
+- Personal/throwaway emails: gmail.com, yahoo.com, hotmail.com, outlook.com addresses with no company association
+- Bots/crawlers: names like "Test User", "Admin", "Webmaster", nonsensical names, or auto-generated usernames
+- Competitors: people from competing sales intelligence companies (e.g. ZoomInfo, Apollo, 6sense, Outreach)
+- Students/academics: .edu emails, "Intern", "Research Assistant", university names as company
+- Completely unrelated industries: local restaurants, plumbers, dentists, pet stores, yoga studios
+- Spam/fake: gibberish emails (asdf123@test.com), empty or suspicious company names, roles like "CEO" at a one-person "company"
+- Job seekers: people who are clearly looking for jobs, not buying software (messages about "looking for opportunities")
+- Free-tier abusers: lots of visits but only to /pricing and /free-trial, no real engagement signals
+
+TRICKY LEAD categories (harder to classify correctly):
+- Looks good but isn't: VP title at a real-sounding company but with a generic email, or great role but in a tiny non-tech company
+- Looks bad but is actually good: CEO with a gmail address but the company is a well-funded startup, or someone with few page views but a very high-intent inbound message
+- Ambiguous intent: visited /pricing AND /careers (are they buying or job hunting?), or browsed /case-studies but the message asks about partnerships not purchasing
+- Mixed signals: senior role at a good company but LinkedIn activity is all about leaving their current job, or great engagement but the company is in a non-ICP industry
+- Edge case roles: "Advisor", "Board Member", "Fractional CTO", "Consultant" — not clearly a buyer
+- International leads: companies from regions that may or may not be in the target market, with non-English names
+- Duplicate-like: very similar names/emails to common test data (e.g. "John Smith" at "Acme Corp")
+
+General rules:
 - Use realistic but fictional names, companies, and email addresses
-- Company names should sound like real startups/businesses (e.g. "Lattice", "Gong", "Clearbit" style naming)
-- Email should match the person and company (e.g. sarah@rocketcrm.io)
-- Pages viewed should be realistic website paths (e.g. /pricing, /demo, /case-studies/customer-name, /blog/topic)
-- LinkedIn activity should read like real LinkedIn behavior — posts, comments, shares relevant to their role
-- Inbound messages should only appear for ~30% of leads, and should feel natural
-- Website visits should range from 1 to 15
-- Vary industries: B2B SaaS, fintech, healthcare tech, dev tools, e-commerce, consulting, manufacturing, etc.
-- Vary roles: VP Sales, SDR Manager, Head of Growth, CEO, Marketing Director, DevOps Lead, etc.
-- Vary company sizes implicitly through the profile details
+- Company names should sound real (both good companies like "Lattice" style and bad ones like "Jim's Auto Body")
+- Email should match the person and company
+- Pages viewed should be realistic website paths
+- LinkedIn activity should read like real LinkedIn behavior
+- Inbound messages should appear for ~30% of leads
+- Website visits should range from 0 to 20 (yes, 0 is valid for some bad leads)
+- Vary everything: industries, roles, company sizes, geographies
 
 Respond with JSON only:
 {
