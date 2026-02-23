@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
   try {
     const response = await client.chat.completions.create({
-      model: "gpt-5.2",
+      model: "anthropic/claude-opus-4-6",
       messages: [
         { role: "system", content: `You are a realistic B2B lead data generator for a sales intelligence platform called Warmly. Generate a single fictional but realistic lead profile. Each profile should feel like a real person — or sometimes NOT a real person at all.
 
