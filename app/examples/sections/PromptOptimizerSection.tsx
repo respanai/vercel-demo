@@ -211,14 +211,22 @@ function FetchPromptResult({ result }: { result: any }) {
           ))}
         </div>
       )}
-      {result.messages?.slice(0, 2).map((m: any, i: number) => (
-        <div key={i} className="border-t border-gray-200 pt-1">
-          <span className="font-bold text-gray-500 text-[10px] uppercase">
-            {m.role}
-          </span>
-          <p className="text-gray-700 mt-0.5 line-clamp-3">{m.content}</p>
-        </div>
-      ))}
+      {result.messages?.slice(0, 2).map((m: any, i: number) => {
+        const content =
+          typeof m.content === "string"
+            ? m.content
+            : Array.isArray(m.content)
+              ? m.content.map((c: any) => (typeof c === "string" ? c : c?.text ?? "")).join("")
+              : m.content?.text ?? JSON.stringify(m.content);
+        return (
+          <div key={i} className="border-t border-gray-200 pt-1">
+            <span className="font-bold text-gray-500 text-[10px] uppercase">
+              {m.role}
+            </span>
+            <p className="text-gray-700 mt-0.5 line-clamp-3">{content}</p>
+          </div>
+        );
+      })}
       {(result.messages?.length ?? 0) > 2 && (
         <p className="text-gray-400 text-[10px]">
           +{result.messages.length - 2} more message(s)
@@ -425,16 +433,24 @@ function ImprovedPromptResult({ result }: { result: any }) {
       </button>
       {showPrompt && result.new_messages && (
         <div className="space-y-1.5">
-          {result.new_messages.map((m: any, i: number) => (
-            <div key={i} className="border border-gray-200 bg-white p-2">
-              <span className="font-bold text-gray-500 text-[10px] uppercase">
-                {m.role}
-              </span>
-              <p className="text-gray-700 mt-0.5 whitespace-pre-wrap text-[10px] max-h-32 overflow-auto">
-                {m.content}
-              </p>
-            </div>
-          ))}
+          {result.new_messages.map((m: any, i: number) => {
+            const content =
+              typeof m.content === "string"
+                ? m.content
+                : Array.isArray(m.content)
+                  ? m.content.map((c: any) => (typeof c === "string" ? c : c?.text ?? "")).join("")
+                  : m.content?.text ?? JSON.stringify(m.content);
+            return (
+              <div key={i} className="border border-gray-200 bg-white p-2">
+                <span className="font-bold text-gray-500 text-[10px] uppercase">
+                  {m.role}
+                </span>
+                <p className="text-gray-700 mt-0.5 whitespace-pre-wrap text-[10px] max-h-32 overflow-auto">
+                  {content}
+                </p>
+              </div>
+            );
+          })}
         </div>
       )}
     </Card>
