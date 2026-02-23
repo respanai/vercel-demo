@@ -328,7 +328,13 @@ async function step2_enrichCompany(
   return await tracer.withTask({ name: "company_enricher" }, async () =>
     tracer.withKeywordsAISpanAttributes(
       async () => {
-        const companyData = lookupCompany(lead.company);
+        const leadContext = {
+          email: lead.email,
+          websiteVisits: lead.websiteVisits,
+          pagesViewed: lead.pagesViewed,
+          linkedinActivity: lead.linkedinActivity,
+          message: lead.message || null,
+        };
 
         const response = await client.chat.completions.create({
           model: "openai/gpt-5.1",
@@ -339,7 +345,7 @@ async function step2_enrichCompany(
             variables: {
               lead_company: lead.company,
               lead_role: lead.role,
-              companyData: JSON.stringify(companyData, null, 2),
+              companyData: JSON.stringify(leadContext, null, 2),
             },
             override: true,
           },
