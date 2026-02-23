@@ -73,7 +73,7 @@ Respond with JSON only:
 }` },
         { role: "user", content: "Generate one random lead profile." },
       ],
-      temperature: 0.8,
+      temperature: 0.9,
       // @ts-expect-error - Keywords AI parameters
       customer_identifier: "warmly_demo_user",
       thread_identifier: `warmly_generate_${Date.now()}`,
