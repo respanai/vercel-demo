@@ -7,7 +7,7 @@ import { BankingChatbotSection } from "../sections/BankingChatbotSection";
 import { PLATFORM_URL } from "../../config/site";
 
 export default function BankingChatbotPage() {
-  const [keywordsaiApiKey, setKeywordsaiApiKey] = useState("");
+  const [respanApiKey, setRespanApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
 
   return (
@@ -39,11 +39,11 @@ export default function BankingChatbotPage() {
           showOpenAI={false}
           openaiApiKey={openaiApiKey}
           setOpenaiApiKey={setOpenaiApiKey}
-          keywordsaiApiKey={keywordsaiApiKey}
-          setKeywordsaiApiKey={setKeywordsaiApiKey}
+          respanApiKey={respanApiKey}
+          setRespanApiKey={setRespanApiKey}
         />
 
-        <BankingChatbotSection keywordsaiApiKey={keywordsaiApiKey} />
+        <BankingChatbotSection respanApiKey={respanApiKey} />
       </div>
     </div>
   );

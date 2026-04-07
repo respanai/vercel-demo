@@ -1,6 +1,6 @@
 /**
  * JSON schema for invoice extraction output.
- * Use with Keywords AI / OpenAI response_format: { type: "json_schema", json_schema: INVOICE_EXTRACTION_JSON_SCHEMA }.
+ * Use with Respan / OpenAI response_format: { type: "json_schema", json_schema: INVOICE_EXTRACTION_JSON_SCHEMA }.
  *
  * Example output:
  * {

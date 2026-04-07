@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "customer_identifier is required" }, { status: 400 });
   }
 
-  const url = new URL(`https://api.keywordsai.co/api/users/${encodeURIComponent(String(customer_identifier))}/`);
+  const url = new URL(`https://api.respan.ai/api/users/${encodeURIComponent(String(customer_identifier))}/`);
   if (environment) url.searchParams.set("environment", String(environment));
 
   const upstream = await fetch(url.toString(), {

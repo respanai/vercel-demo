@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "trace_unique_id is required" }, { status: 400 });
   }
 
-  const url = new URL(`https://api.keywordsai.co/api/traces/${encodeURIComponent(String(trace_unique_id))}/`);
+  const url = new URL(`https://api.respan.ai/api/traces/${encodeURIComponent(String(trace_unique_id))}/`);
   if (environment) url.searchParams.set("environment", String(environment));
   if (timestamp) url.searchParams.set("timestamp", String(timestamp));
   if (start_time) url.searchParams.set("start_time", String(start_time));

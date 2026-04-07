@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   const { output } = body ?? {};
   const payload = output && typeof output === "object" ? { output } : { output: { output: "Updated by vercel-demo." } };
 
-  const url = `https://api.keywordsai.co/api/v2/experiments/${encodeURIComponent(experiment_id)}/logs/${encodeURIComponent(
+  const url = `https://api.respan.ai/api/v2/experiments/${encodeURIComponent(experiment_id)}/logs/${encodeURIComponent(
     log_id,
   )}`;
   const upstream = await fetch(url, {

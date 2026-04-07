@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     ],
   };
 
-  const url = "https://api.keywordsai.co/api/request-logs/batch-update/";
+  const url = "https://api.respan.ai/api/request-logs/batch-update/";
   const upstream = await fetch(url, {
     method: "PATCH",
     headers: {

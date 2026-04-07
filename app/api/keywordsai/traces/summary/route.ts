@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const { start_time, end_time, environment, filters = {} } = body ?? {};
 
-  const url = new URL("https://api.keywordsai.co/clickhouse/traces/summary/");
+  const url = new URL("https://api.respan.ai/clickhouse/traces/summary/");
   if (start_time) url.searchParams.set("start_time", String(start_time));
   if (end_time) url.searchParams.set("end_time", String(end_time));
   if (environment) url.searchParams.set("environment", String(environment));

@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
-export function ObserveLogsSection(props: { keywordsaiApiKey: string }) {
-  const { keywordsaiApiKey } = props;
+export function ObserveLogsSection(props: { respanApiKey: string }) {
+  const { respanApiKey } = props;
 
   const demoCustomerIdentifier = "user_demo_123";
   const updatedCustomer = "updated_customer_user_demo123";
@@ -27,7 +27,7 @@ export function ObserveLogsSection(props: { keywordsaiApiKey: string }) {
       setLogsGetResult(null);
       setLogsUpdateResult(null);
       try {
-        const data = await postProxy("/api/keywordsai/logs/create", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/logs/create", respanApiKey, {
           customer_identifier: demoCustomerIdentifier,
         });
         setLogsCreateResult(data);
@@ -41,7 +41,7 @@ export function ObserveLogsSection(props: { keywordsaiApiKey: string }) {
       setLogsStepLoading("get");
       setLogsGetResult(null);
       try {
-        const data = await postProxy("/api/keywordsai/logs/get", keywordsaiApiKey, { unique_id: logId });
+        const data = await postProxy("/api/respan/logs/get", respanApiKey, { unique_id: logId });
         setLogsGetResult(data);
       } finally {
         setLogsStepLoading(null);
@@ -52,9 +52,9 @@ export function ObserveLogsSection(props: { keywordsaiApiKey: string }) {
       setLogsStepLoading("update");
       setLogsUpdateResult(null);
       try {
-        const data = await postProxy("/api/keywordsai/logs/update", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/logs/update", respanApiKey, {
           unique_id: logId,
-          metadata: { demo: "keywords-ai-demo", updated: true, customer_identifier: updatedCustomer },
+          metadata: { demo: "respan-demo", updated: true, customer_identifier: updatedCustomer },
           note: updatedCustomer,
           positive_feedback: true,
         });
@@ -70,7 +70,7 @@ export function ObserveLogsSection(props: { keywordsaiApiKey: string }) {
         const now = new Date();
         const start = new Date(now.getTime() - 15 * 60 * 1000);
         const end = new Date(now.getTime() + 5 * 60 * 1000);
-        const data = await postProxy("/api/keywordsai/logs/list", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/logs/list", respanApiKey, {
           page: 1,
           page_size: 20,
           sort_by: "-id",
@@ -116,7 +116,7 @@ export function ObserveLogsSection(props: { keywordsaiApiKey: string }) {
             <span className="text-gray-400">unique_id:</span> {logId || "—"}
           </Card>
           <Card className="p-3 text-xs font-mono">
-            <span className="text-gray-400">source:</span> keywords-ai-demo
+            <span className="text-gray-400">source:</span> respan-demo
           </Card>
         </div>
       </div>

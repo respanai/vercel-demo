@@ -1,4 +1,4 @@
-const BASE = "https://api.keywordsai.co";
+const BASE = "https://api.respan.ai";
 
 export async function callGateway(
   apiKey: string,
@@ -19,7 +19,7 @@ export async function callGateway(
   return { content, raw: json };
 }
 
-export async function callKeywordsAI(
+export async function callRespan(
   apiKey: string,
   method: string,
   path: string,
@@ -37,7 +37,7 @@ export async function callKeywordsAI(
   const json = await res.json().catch(() => ({}));
   if (!res.ok)
     throw new Error(
-      `Keywords AI ${method} ${url} failed (${res.status}): ${JSON.stringify(json)}`,
+      `Respan ${method} ${url} failed (${res.status}): ${JSON.stringify(json)}`,
     );
   return json;
 }

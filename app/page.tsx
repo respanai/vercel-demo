@@ -5,7 +5,7 @@ import { HOME_CARDS, HOME_SECTION_LABEL } from "./config/homeCards";
 import { BRAND_NAME } from "./config/site";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 
-const DOCS_URL = "https://docs.keywordsai.co/integration/tracing/vercel-tracing?utm_source=agentblocks";
+const DOCS_URL = "https://respan.ai/docs";
 
 export default function Home() {
   return (
@@ -24,7 +24,7 @@ export default function Home() {
               target="_blank"
               rel="noreferrer"
             >
-              docs.keywordsai.co
+              respan.ai/docs
             </a>
           </p>
         </div>

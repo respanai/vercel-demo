@@ -7,7 +7,7 @@ import { InvoiceGeneratorSection } from "../sections/InvoiceGeneratorSection";
 import { PLATFORM_URL } from "../../config/site";
 
 export default function InvoiceGeneratorPage() {
-  const [keywordsaiApiKey, setKeywordsaiApiKey] = useState("");
+  const [respanApiKey, setRespanApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
 
   return (
@@ -39,11 +39,11 @@ export default function InvoiceGeneratorPage() {
           showOpenAI={false}
           openaiApiKey={openaiApiKey}
           setOpenaiApiKey={setOpenaiApiKey}
-          keywordsaiApiKey={keywordsaiApiKey}
-          setKeywordsaiApiKey={setKeywordsaiApiKey}
+          respanApiKey={respanApiKey}
+          setRespanApiKey={setRespanApiKey}
         />
 
-        <InvoiceGeneratorSection keywordsaiApiKey={keywordsaiApiKey} />
+        <InvoiceGeneratorSection respanApiKey={respanApiKey} />
       </div>
     </div>
   );

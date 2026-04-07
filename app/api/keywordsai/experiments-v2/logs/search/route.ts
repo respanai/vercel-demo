@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
   const { filters = {} } = body ?? {};
 
-  const url = `https://api.keywordsai.co/api/v2/experiments/${encodeURIComponent(experiment_id)}/logs/list`;
+  const url = `https://api.respan.ai/api/v2/experiments/${encodeURIComponent(experiment_id)}/logs/list`;
   const upstream = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },

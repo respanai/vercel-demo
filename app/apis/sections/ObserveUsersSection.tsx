@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
-export function ObserveUsersSection(props: { keywordsaiApiKey: string }) {
-  const { keywordsaiApiKey } = props;
+export function ObserveUsersSection(props: { respanApiKey: string }) {
+  const { respanApiKey } = props;
 
   const demoCustomerIdentifier = "customer_user_demo123";
   const env = "prod";
@@ -26,7 +26,7 @@ export function ObserveUsersSection(props: { keywordsaiApiKey: string }) {
       setUsersStepLoading("create-user");
       setCreateUserResult(null);
       try {
-        const data = await postProxy("/api/keywordsai/logs/create", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/logs/create", respanApiKey, {
           customer_identifier: demoCustomerIdentifier,
         });
         setCreateUserResult(data);
@@ -38,7 +38,7 @@ export function ObserveUsersSection(props: { keywordsaiApiKey: string }) {
       setUsersStepLoading("list");
       setUsersListResult(null);
       try {
-        const data = await postProxy("/api/keywordsai/users/list-get", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/users/list-get", respanApiKey, {
           page: 1,
           page_size: 50,
           sort_by: "-first_seen",
@@ -53,7 +53,7 @@ export function ObserveUsersSection(props: { keywordsaiApiKey: string }) {
       setUsersStepLoading("get");
       setUsersGetResult(null);
       try {
-        const data = await postProxy("/api/keywordsai/users/get", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/users/get", respanApiKey, {
           customer_identifier: demoCustomerIdentifier,
           environment: env,
         });
@@ -66,11 +66,11 @@ export function ObserveUsersSection(props: { keywordsaiApiKey: string }) {
       setUsersStepLoading("update");
       setUsersUpdateResult(null);
       try {
-        const data = await postProxy("/api/keywordsai/users/update", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/users/update", respanApiKey, {
           customer_identifier: demoCustomerIdentifier,
           environment: env,
           period_budget: 200.0,
-          metadata: { plan: "pro", updated_by: "keywords-ai-demo" },
+          metadata: { plan: "pro", updated_by: "respan-demo" },
         });
         setUsersUpdateResult(data);
       } finally {
@@ -102,7 +102,7 @@ export function ObserveUsersSection(props: { keywordsaiApiKey: string }) {
             <span className="text-gray-400">list params:</span> {JSON.stringify({ page: 1, page_size: 50, sort_by: "-first_seen" })}
           </Card>
           <Card className="p-3 text-xs font-mono">
-            <span className="text-gray-400">update payload:</span> {JSON.stringify({ period_budget: 200.0, metadata: { plan: "pro", updated_by: "keywords-ai-demo" } })}
+            <span className="text-gray-400">update payload:</span> {JSON.stringify({ period_budget: 200.0, metadata: { plan: "pro", updated_by: "respan-demo" } })}
           </Card>
         </div>
       </Card>

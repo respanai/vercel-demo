@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
-export function ObserveTracesSection(props: { keywordsaiApiKey: string }) {
-  const { keywordsaiApiKey } = props;
+export function ObserveTracesSection(props: { respanApiKey: string }) {
+  const { respanApiKey } = props;
 
   const listDefaults = {
     page: 1,
@@ -30,7 +30,7 @@ export function ObserveTracesSection(props: { keywordsaiApiKey: string }) {
       setTracesGetResult(null);
       setTracesSummaryResult(null);
       try {
-        const data = await postProxy("/api/keywordsai/traces/list", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/traces/list", respanApiKey, {
           ...listDefaults,
         });
         setTracesListResult(data);
@@ -46,7 +46,7 @@ export function ObserveTracesSection(props: { keywordsaiApiKey: string }) {
       setTracesStepLoading("get");
       setTracesGetResult(null);
       try {
-        const data = await postProxy("/api/keywordsai/traces/get", keywordsaiApiKey, { trace_unique_id: traceId });
+        const data = await postProxy("/api/respan/traces/get", respanApiKey, { trace_unique_id: traceId });
         setTracesGetResult(data);
       } finally {
         setTracesStepLoading(null);
@@ -56,7 +56,7 @@ export function ObserveTracesSection(props: { keywordsaiApiKey: string }) {
       setTracesStepLoading("summary");
       setTracesSummaryResult(null);
       try {
-        const data = await postProxy("/api/keywordsai/traces/summary", keywordsaiApiKey, { filters: {} });
+        const data = await postProxy("/api/respan/traces/summary", respanApiKey, { filters: {} });
         setTracesSummaryResult(data);
       } finally {
         setTracesStepLoading(null);

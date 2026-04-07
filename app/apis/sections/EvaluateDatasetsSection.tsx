@@ -16,8 +16,8 @@ function pickId(obj: any, keys: string[]): string | undefined {
   return undefined;
 }
 
-export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
-  const { keywordsaiApiKey } = props;
+export function EvaluateDatasetsSection(props: { respanApiKey: string }) {
+  const { respanApiKey } = props;
 
   const createDatasetPayload = {
     name: "Demo Dataset (vercel-demo)",
@@ -95,7 +95,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
       setLoading("create-dataset");
       setR1(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/create", keywordsaiApiKey, createDatasetPayload);
+        const data = await postProxy("/api/respan/datasets/create", respanApiKey, createDatasetPayload);
         setR1(data);
         const id = pickId((data as any)?.response, ["id", "dataset_id"]);
         if (id) setDatasetId(id);
@@ -108,7 +108,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
       setLoading("create-log");
       setR2(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/logs/create", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/datasets/logs/create", respanApiKey, {
           dataset_id: datasetId,
           ...createDatasetLogPayload,
         });
@@ -126,7 +126,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
       setLoading("list-datasets");
       setR3(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/list", keywordsaiApiKey, {});
+        const data = await postProxy("/api/respan/datasets/list", respanApiKey, {});
         setR3(data);
         const first = (data as any)?.response?.results?.[0]?.id;
         if (!datasetId && first) setDatasetId(String(first));
@@ -139,7 +139,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
       setLoading("get-dataset");
       setR4(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/get", keywordsaiApiKey, { dataset_id: datasetId });
+        const data = await postProxy("/api/respan/datasets/get", respanApiKey, { dataset_id: datasetId });
         setR4(data);
       } finally {
         setLoading(null);
@@ -150,7 +150,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
       setLoading("patch-dataset");
       setR5(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/patch", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/datasets/patch", respanApiKey, {
           dataset_id: datasetId,
           ...patchDatasetPayload,
         });
@@ -164,7 +164,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
       setLoading("delete-dataset");
       setR6(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/delete", keywordsaiApiKey, { dataset_id: datasetId });
+        const data = await postProxy("/api/respan/datasets/delete", respanApiKey, { dataset_id: datasetId });
         setR6(data);
       } finally {
         setLoading(null);
@@ -175,7 +175,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
       setLoading("list-logs");
       setR7(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/logs/list", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/datasets/logs/list", respanApiKey, {
           dataset_id: datasetId,
           page: 1,
           page_size: 10,
@@ -190,7 +190,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
       setLoading("list-logs-filter");
       setR8(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/logs/list-filter", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/datasets/logs/list-filter", respanApiKey, {
           dataset_id: datasetId,
           ...logsListFilterPayload,
         });
@@ -203,7 +203,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
       setLoading("create-with-logs");
       setR9(null);
       try {
-        const createdLog = await postProxy("/api/keywordsai/logs/create", keywordsaiApiKey, {
+        const createdLog = await postProxy("/api/respan/logs/create", respanApiKey, {
           customer_identifier: "dataset_demo_customer",
         });
         const requestUid =
@@ -215,7 +215,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
           ...createDatasetWithLogsBasePayload,
           initial_log_filters: { id: { operator: "in", value: requestUid ? [requestUid] : [] } },
         };
-        const createdDataset = await postProxy("/api/keywordsai/datasets/create-with-logs", keywordsaiApiKey, datasetPayload);
+        const createdDataset = await postProxy("/api/respan/datasets/create-with-logs", respanApiKey, datasetPayload);
         const id = pickId((createdDataset as any)?.response, ["id", "dataset_id"]);
         if (id) setDatasetId(String(id));
 
@@ -229,7 +229,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
       setLoading("eval-list");
       setR10(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/eval-reports/list", keywordsaiApiKey, { dataset_id: datasetId });
+        const data = await postProxy("/api/respan/datasets/eval-reports/list", respanApiKey, { dataset_id: datasetId });
         setR10(data);
       } finally {
         setLoading(null);
@@ -240,7 +240,7 @@ export function EvaluateDatasetsSection(props: { keywordsaiApiKey: string }) {
       setLoading("eval-create");
       setR11(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/eval-reports/create", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/datasets/eval-reports/create", respanApiKey, {
           dataset_id: datasetId,
           ...evalCreatePayload,
         });

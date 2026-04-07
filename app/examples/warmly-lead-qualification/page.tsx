@@ -7,7 +7,7 @@ import { WarmlyLeadQualificationSection } from "../sections/WarmlyLeadQualificat
 import { PLATFORM_URL } from "../../config/site";
 
 export default function WarmlyLeadQualificationPage() {
-  const [keywordsaiApiKey, setKeywordsaiApiKey] = useState("");
+  const [respanApiKey, setRespanApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
 
   return (
@@ -39,11 +39,11 @@ export default function WarmlyLeadQualificationPage() {
           showOpenAI={false}
           openaiApiKey={openaiApiKey}
           setOpenaiApiKey={setOpenaiApiKey}
-          keywordsaiApiKey={keywordsaiApiKey}
-          setKeywordsaiApiKey={setKeywordsaiApiKey}
+          respanApiKey={respanApiKey}
+          setRespanApiKey={setRespanApiKey}
         />
 
-        <WarmlyLeadQualificationSection keywordsaiApiKey={keywordsaiApiKey} />
+        <WarmlyLeadQualificationSection respanApiKey={respanApiKey} />
       </div>
     </div>
   );

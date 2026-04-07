@@ -331,9 +331,9 @@ function StepCard({ stepLog }: { stepLog: StepLog }) {
 // ============================================================================
 
 export function WarmlyLeadQualificationSection(props: {
-  keywordsaiApiKey: string;
+  respanApiKey: string;
 }) {
-  const { keywordsaiApiKey } = props;
+  const { respanApiKey } = props;
 
   // Form state
   const [form, setForm] = useState<Lead>({ ...EMPTY_LEAD });
@@ -362,8 +362,8 @@ export function WarmlyLeadQualificationSection(props: {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(keywordsaiApiKey && {
-            "x-keywordsai-api-key": keywordsaiApiKey,
+          ...(respanApiKey && {
+            "x-respan-api-key": respanApiKey,
           }),
         },
       });
@@ -390,7 +390,7 @@ export function WarmlyLeadQualificationSection(props: {
     } finally {
       setGenerating(false);
     }
-  }, [keywordsaiApiKey]);
+  }, [respanApiKey]);
 
   const buildLeadFromForm = useCallback((): Lead => {
     return {
@@ -433,8 +433,8 @@ export function WarmlyLeadQualificationSection(props: {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(keywordsaiApiKey && {
-              "x-keywordsai-api-key": keywordsaiApiKey,
+            ...(respanApiKey && {
+              "x-respan-api-key": respanApiKey,
             }),
           },
           body: JSON.stringify({ lead }),
@@ -468,7 +468,7 @@ export function WarmlyLeadQualificationSection(props: {
         );
       }
     },
-    [keywordsaiApiKey]
+    [respanApiKey]
   );
 
   const runPipeline = useCallback(
@@ -511,7 +511,7 @@ export function WarmlyLeadQualificationSection(props: {
         </h2>
         <p className="text-xs text-gray-600 mt-1">
           Enter a lead below or try a preset, then add to your queue and qualify.
-          Each step is a separate LLM call traced to Keywords AI.
+          Each step is a separate LLM call traced to Respan.
         </p>
       </div>
 
@@ -831,7 +831,7 @@ export function WarmlyLeadQualificationSection(props: {
                 <div className="flex items-center gap-2">
                   <span className="text-green-600 text-lg">✓</span>
                   <span className="text-xs font-bold text-green-700">
-                    All steps traced to Keywords AI
+                    All steps traced to Respan
                   </span>
                 </div>
                 <div className="mt-2 flex gap-4 text-[10px] text-green-600">

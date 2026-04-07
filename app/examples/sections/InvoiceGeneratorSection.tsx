@@ -70,8 +70,8 @@ function parseExtraction(content: string | undefined): InvoiceData | null {
   }
 }
 
-export function InvoiceGeneratorSection(props: { keywordsaiApiKey: string }) {
-  const { keywordsaiApiKey } = props;
+export function InvoiceGeneratorSection(props: { respanApiKey: string }) {
+  const { respanApiKey } = props;
   const [promptId, setPromptId] = useState("dde652380a9a43529e8fe39ac4462454");
   const [rawText, setRawText] = useState(
     "Invoice from Acme Corp to Rho. Invoice #INV-2026-001. Issue date Feb 5 2026, due March 7 2026. USD. Item: Consulting services, 10 hours at $150/hr. Payment by wire to account 123456."
@@ -108,7 +108,7 @@ export function InvoiceGeneratorSection(props: { keywordsaiApiKey: string }) {
             max_tokens: 1024,
           };
 
-      const data = await postProxy("/api/keywordsai/gateway/chat-completions", keywordsaiApiKey, body);
+      const data = await postProxy("/api/respan/gateway/chat-completions", respanApiKey, body);
       const content = (data?.response as any)?.choices?.[0]?.message?.content;
       setLastInput(rawText);
       setLastOutput(typeof content === "string" ? content : content ? JSON.stringify(content, null, 2) : null);
@@ -135,7 +135,7 @@ export function InvoiceGeneratorSection(props: { keywordsaiApiKey: string }) {
             <Input
               value={promptId}
               onChange={(e) => setPromptId(e.target.value)}
-              placeholder="e.g. from Keywords AI Prompt Management"
+              placeholder="e.g. from Respan Prompt Management"
               disabled={loading}
             />
           </Card>

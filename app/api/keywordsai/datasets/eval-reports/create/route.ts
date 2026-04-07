@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
   const { dataset_id: _ignored, ...payload } = body ?? {};
 
-  const url = `https://api.keywordsai.co/api/datasets/${encodeURIComponent(dataset_id)}/eval-reports/create`;
+  const url = `https://api.respan.ai/api/datasets/${encodeURIComponent(dataset_id)}/eval-reports/create`;
   const upstream = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },

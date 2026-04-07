@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const { prompt_id, ...payload } = body ?? {};
   if (!prompt_id) return Response.json({ error: "prompt_id is required" }, { status: 400 });
 
-  const url = `https://api.keywordsai.co/api/prompts/${encodeURIComponent(String(prompt_id))}/versions/`;
+  const url = `https://api.respan.ai/api/prompts/${encodeURIComponent(String(prompt_id))}/versions/`;
   const upstream = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },

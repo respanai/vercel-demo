@@ -150,8 +150,8 @@ function buildSegments(
 // COMPONENT
 // ============================================================================
 
-export function SecComplianceSection(props: { keywordsaiApiKey: string }) {
-  const { keywordsaiApiKey } = props;
+export function SecComplianceSection(props: { respanApiKey: string }) {
+  const { respanApiKey } = props;
 
   const [content, setContent] = useState("");
   const [reviewedContent, setReviewedContent] = useState("");
@@ -170,7 +170,7 @@ export function SecComplianceSection(props: { keywordsaiApiKey: string }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(keywordsaiApiKey && { "x-keywordsai-api-key": keywordsaiApiKey }),
+          ...(respanApiKey && { "x-respan-api-key": respanApiKey }),
         },
         body: JSON.stringify({ content }),
       });

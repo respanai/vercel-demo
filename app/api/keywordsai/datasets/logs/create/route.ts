@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     metrics: metrics ?? { cost: 0.0, latency: 0.0 },
   };
 
-  const url = `https://api.keywordsai.co/api/datasets/${encodeURIComponent(dataset_id)}/logs/`;
+  const url = `https://api.respan.ai/api/datasets/${encodeURIComponent(dataset_id)}/logs/`;
   const upstream = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },

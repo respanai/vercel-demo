@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const experiment_id = String(body?.experiment_id || body?.id || "").trim();
   if (!experiment_id) return Response.json({ error: "experiment_id is required" }, { status: 400 });
 
-  const url = `https://api.keywordsai.co/api/v2/experiments/${encodeURIComponent(experiment_id)}/`;
+  const url = `https://api.respan.ai/api/v2/experiments/${encodeURIComponent(experiment_id)}/`;
   const upstream = await fetch(url, { method: "DELETE", headers: { Authorization: `Bearer ${apiKey}` } });
 
   if (upstream.status === 204) return Response.json({ url, response: "204 No Content" });

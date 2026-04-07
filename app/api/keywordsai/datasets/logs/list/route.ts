@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
   const { page = 1, page_size = 10 } = body ?? {};
 
-  const url = new URL(`https://api.keywordsai.co/api/datasets/${encodeURIComponent(dataset_id)}/logs/list/`);
+  const url = new URL(`https://api.respan.ai/api/datasets/${encodeURIComponent(dataset_id)}/logs/list/`);
   url.searchParams.set("page", String(page));
   url.searchParams.set("page_size", String(page_size));
 

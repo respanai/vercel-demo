@@ -1,11 +1,11 @@
 "use client";
 
-export async function postProxy(path: string, keywordsaiApiKey: string, body: unknown) {
+export async function postProxy(path: string, respanApiKey: string, body: unknown) {
   const res = await fetch(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(keywordsaiApiKey ? { "x-keywordsai-api-key": keywordsaiApiKey } : {}),
+      ...(respanApiKey ? { "x-respan-api-key": respanApiKey } : {}),
     },
     body: JSON.stringify(body ?? {}),
   });

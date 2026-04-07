@@ -7,7 +7,7 @@ import { SecComplianceSection } from "../sections/SecComplianceSection";
 import { PLATFORM_URL } from "../../config/site";
 
 export default function SecCompliancePage() {
-  const [keywordsaiApiKey, setKeywordsaiApiKey] = useState("");
+  const [respanApiKey, setRespanApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
 
   return (
@@ -39,11 +39,11 @@ export default function SecCompliancePage() {
           showOpenAI={false}
           openaiApiKey={openaiApiKey}
           setOpenaiApiKey={setOpenaiApiKey}
-          keywordsaiApiKey={keywordsaiApiKey}
-          setKeywordsaiApiKey={setKeywordsaiApiKey}
+          respanApiKey={respanApiKey}
+          setRespanApiKey={setRespanApiKey}
         />
 
-        <SecComplianceSection keywordsaiApiKey={keywordsaiApiKey} />
+        <SecComplianceSection respanApiKey={respanApiKey} />
       </div>
     </div>
   );

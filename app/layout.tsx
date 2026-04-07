@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Keywords AI Demo",
-  description: "Demo application showcasing Keywords AI APIs and integrations",
+  title: "Respan Demo",
+  description: "Demo application showcasing Respan APIs and integrations",
 };
 
 export default function RootLayout({

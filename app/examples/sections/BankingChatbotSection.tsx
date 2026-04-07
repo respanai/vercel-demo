@@ -42,8 +42,8 @@ const AVAILABLE_TOOLS = [
   { name: "getAccountInfo", desc: "Get account details" },
 ];
 
-export function BankingChatbotSection(props: { keywordsaiApiKey: string }) {
-  const { keywordsaiApiKey } = props;
+export function BankingChatbotSection(props: { respanApiKey: string }) {
+  const { respanApiKey } = props;
 
   // Default prompt ID - user can override
   const [promptId, setPromptId] = useState("e43ac1e13a574d869c7864aeda9da8eb");
@@ -59,7 +59,7 @@ export function BankingChatbotSection(props: { keywordsaiApiKey: string }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(keywordsaiApiKey && { "x-keywordsai-api-key": keywordsaiApiKey }),
+          ...(respanApiKey && { "x-respan-api-key": respanApiKey }),
         },
         body: JSON.stringify({ message, promptId: promptId.trim() || undefined }),
       });
@@ -85,13 +85,13 @@ export function BankingChatbotSection(props: { keywordsaiApiKey: string }) {
       <div>
         <h2 className="text-sm font-bold">Banking Chatbot with Tool Calling</h2>
         <p className="text-xs text-gray-600 mt-1">
-          AI-powered assistant that selects and executes banking tools. Full workflow traced via OpenTelemetry to Keywords AI.
+          AI-powered assistant that selects and executes banking tools. Full workflow traced via OpenTelemetry to Respan.
         </p>
       </div>
 
       {/* Prompt ID (optional) */}
       <Card variant="muted" className="p-4">
-        <Label className="mb-2 block">Keywords AI Prompt ID (optional)</Label>
+        <Label className="mb-2 block">Respan Prompt ID (optional)</Label>
         <Input
           value={promptId}
           onChange={(e) => setPromptId(e.target.value)}
@@ -99,7 +99,7 @@ export function BankingChatbotSection(props: { keywordsaiApiKey: string }) {
           disabled={loading}
         />
         <p className="text-[10px] text-gray-500 mt-2">
-          Default prompt ID is pre-filled. Clear to use inline prompt, or replace with your own Keywords AI prompt ID.
+          Default prompt ID is pre-filled. Clear to use inline prompt, or replace with your own Respan prompt ID.
         </p>
       </Card>
 
@@ -227,7 +227,7 @@ export function BankingChatbotSection(props: { keywordsaiApiKey: string }) {
           <Card className="p-4 border-green-200 bg-green-50">
             <div className="flex items-center gap-2">
               <span className="text-green-600 text-lg">✓</span>
-              <span className="text-xs font-bold text-green-700">Workflow traced to Keywords AI</span>
+              <span className="text-xs font-bold text-green-700">Workflow traced to Respan</span>
             </div>
             <div className="mt-2 flex gap-4 text-[10px] text-green-600">
               <span>Trace Group: <span className="font-mono">{result.metadata.traceGroup}</span></span>

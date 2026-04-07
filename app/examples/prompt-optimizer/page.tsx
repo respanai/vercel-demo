@@ -7,7 +7,7 @@ import { PromptOptimizerSection } from "../sections/PromptOptimizerSection";
 import { PLATFORM_URL } from "../../config/site";
 
 export default function PromptOptimizerPage() {
-  const [keywordsaiApiKey, setKeywordsaiApiKey] = useState("");
+  const [respanApiKey, setRespanApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
 
   return (
@@ -45,11 +45,11 @@ export default function PromptOptimizerPage() {
           showOpenAI={false}
           openaiApiKey={openaiApiKey}
           setOpenaiApiKey={setOpenaiApiKey}
-          keywordsaiApiKey={keywordsaiApiKey}
-          setKeywordsaiApiKey={setKeywordsaiApiKey}
+          respanApiKey={respanApiKey}
+          setRespanApiKey={setRespanApiKey}
         />
 
-        <PromptOptimizerSection keywordsaiApiKey={keywordsaiApiKey} />
+        <PromptOptimizerSection respanApiKey={respanApiKey} />
       </div>
     </div>
   );

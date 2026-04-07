@@ -28,7 +28,7 @@ type ApiSection =
 
 export default function ApisPage() {
   const [openaiApiKey, setOpenaiApiKey] = useState("");
-  const [keywordsaiApiKey, setKeywordsaiApiKey] = useState("");
+  const [respanApiKey, setRespanApiKey] = useState("");
   const [section, setSection] = useState<ApiSection>("observe-logs");
 
   return (
@@ -57,8 +57,8 @@ export default function ApisPage() {
           showOpenAI={false}
           openaiApiKey={openaiApiKey}
           setOpenaiApiKey={setOpenaiApiKey}
-          keywordsaiApiKey={keywordsaiApiKey}
-          setKeywordsaiApiKey={setKeywordsaiApiKey}
+          respanApiKey={respanApiKey}
+          setRespanApiKey={setRespanApiKey}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6">
@@ -135,14 +135,14 @@ export default function ApisPage() {
           </Card>
 
           <div>
-            {section === "observe-logs" && <ObserveLogsSection keywordsaiApiKey={keywordsaiApiKey} />}
-            {section === "observe-traces" && <ObserveTracesSection keywordsaiApiKey={keywordsaiApiKey} />}
-            {section === "observe-threads" && <ObserveThreadsSection keywordsaiApiKey={keywordsaiApiKey} />}
-            {section === "observe-users" && <ObserveUsersSection keywordsaiApiKey={keywordsaiApiKey} />}
-            {section === "evaluate-datasets" && <EvaluateDatasetsSection keywordsaiApiKey={keywordsaiApiKey} />}
-            {section === "develop-gateway" && <DevelopGatewaySection keywordsaiApiKey={keywordsaiApiKey} />}
-            {section === "develop-prompts" && <DevelopPromptsSection keywordsaiApiKey={keywordsaiApiKey} />}
-            {section === "develop-experiments" && <DevelopExperimentsSection keywordsaiApiKey={keywordsaiApiKey} />}
+            {section === "observe-logs" && <ObserveLogsSection respanApiKey={respanApiKey} />}
+            {section === "observe-traces" && <ObserveTracesSection respanApiKey={respanApiKey} />}
+            {section === "observe-threads" && <ObserveThreadsSection respanApiKey={respanApiKey} />}
+            {section === "observe-users" && <ObserveUsersSection respanApiKey={respanApiKey} />}
+            {section === "evaluate-datasets" && <EvaluateDatasetsSection respanApiKey={respanApiKey} />}
+            {section === "develop-gateway" && <DevelopGatewaySection respanApiKey={respanApiKey} />}
+            {section === "develop-prompts" && <DevelopPromptsSection respanApiKey={respanApiKey} />}
+            {section === "develop-experiments" && <DevelopExperimentsSection respanApiKey={respanApiKey} />}
           </div>
         </div>
       </div>

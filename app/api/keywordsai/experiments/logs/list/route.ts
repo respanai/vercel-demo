@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const { page = 1, page_size = 10, filters = {} } = body ?? {};
   const payload = { page, page_size, filters };
 
-  const url = `https://api.keywordsai.co/api/v2/experiments/${encodeURIComponent(experiment_id)}/logs/list/`;
+  const url = `https://api.respan.ai/api/v2/experiments/${encodeURIComponent(experiment_id)}/logs/list/`;
   const upstream = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },

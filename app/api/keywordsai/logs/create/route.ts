@@ -54,7 +54,7 @@ export async function POST(req: Request) {
 
   // Docs + examples use /api/request-logs/create/ for creating logs.
   // Posting to /api/request-logs/ can return a list-shaped response in some environments.
-  const url = "https://api.keywordsai.co/api/request-logs/create/";
+  const url = "https://api.respan.ai/api/request-logs/create/";
   const upstream = await fetch(url, {
     method: "POST",
     headers: {

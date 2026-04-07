@@ -16,8 +16,8 @@ function pickFirst(obj: any, keys: string[]): string | undefined {
   return undefined;
 }
 
-export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
-  const { keywordsaiApiKey } = props;
+export function DevelopExperimentsSection(props: { respanApiKey: string }) {
+  const { respanApiKey } = props;
 
   const experimentSearchFilters = {
     filters: { name: "Demo Experiment (vercel-demo)" },
@@ -91,7 +91,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
       setLoading("create-dataset");
       setR1(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/create", keywordsaiApiKey, createDatasetPayload);
+        const data = await postProxy("/api/respan/datasets/create", respanApiKey, createDatasetPayload);
         setR1(data);
         const id = pickFirst((data as any)?.response, ["id", "dataset_id"]);
         if (id) setDatasetId(String(id));
@@ -104,7 +104,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
       setLoading("create-dataset-log");
       setR2(null);
       try {
-        const data = await postProxy("/api/keywordsai/datasets/logs/create", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/datasets/logs/create", respanApiKey, {
           dataset_id: datasetId,
           ...createDatasetLogPayload,
         });
@@ -119,7 +119,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
       setR3(null);
       try {
         const payload = { ...createExperimentTemplate, dataset_id: datasetId };
-        const data = await postProxy("/api/keywordsai/experiments/create", keywordsaiApiKey, payload);
+        const data = await postProxy("/api/respan/experiments/create", respanApiKey, payload);
         setR3(data);
         const id = pickFirst((data as any)?.response, ["id", "experiment_id"]);
         if (id) setCreatedExperimentId(String(id));
@@ -131,7 +131,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
       setLoading("list-experiments");
       setR4(null);
       try {
-        const data = await postProxy("/api/keywordsai/experiments/list", keywordsaiApiKey, {});
+        const data = await postProxy("/api/respan/experiments/list", respanApiKey, {});
         setR4(data);
         const first = (data as any)?.response?.results?.[0]?.id;
         if (!experimentId && first) setExperimentId(String(first));
@@ -143,7 +143,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
       setLoading("search-experiments");
       setR5(null);
       try {
-        const data = await postProxy("/api/keywordsai/experiments/search", keywordsaiApiKey, experimentSearchFilters);
+        const data = await postProxy("/api/respan/experiments/search", respanApiKey, experimentSearchFilters);
         setR5(data);
         const first = (data as any)?.response?.results?.[0]?.id;
         if (first) setExperimentId(String(first));
@@ -156,7 +156,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
       setLoading("get-experiment");
       setR6(null);
       try {
-        const data = await postProxy("/api/keywordsai/experiments/get", keywordsaiApiKey, { experiment_id: activeExperimentId });
+        const data = await postProxy("/api/respan/experiments/get", respanApiKey, { experiment_id: activeExperimentId });
         setR6(data);
       } finally {
         setLoading(null);
@@ -167,7 +167,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
       setLoading("delete-experiment");
       setR7(null);
       try {
-        const data = await postProxy("/api/keywordsai/experiments/delete", keywordsaiApiKey, { experiment_id: activeExperimentId });
+        const data = await postProxy("/api/respan/experiments/delete", respanApiKey, { experiment_id: activeExperimentId });
         setR7(data);
       } finally {
         setLoading(null);
@@ -178,7 +178,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
       setLoading("list-logs");
       setR8(null);
       try {
-        const data = await postProxy("/api/keywordsai/experiments/logs/list", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/experiments/logs/list", respanApiKey, {
           experiment_id: activeExperimentId,
           page: 1,
           page_size: 10,
@@ -200,7 +200,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
       setLoading("get-log");
       setR9(null);
       try {
-        const data = await postProxy("/api/keywordsai/experiments/logs/get", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/experiments/logs/get", respanApiKey, {
           experiment_id: activeExperimentId,
           log_id: experimentLogId,
         });
@@ -214,7 +214,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
       setLoading("update-log");
       setR10(null);
       try {
-        const data = await postProxy("/api/keywordsai/experiments/logs/update", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/experiments/logs/update", respanApiKey, {
           experiment_id: activeExperimentId,
           log_id: experimentLogId,
           output: updateLogOutput,
@@ -234,7 +234,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
           page_size: 10,
           filters: {},
         };
-        const data = await postProxy("/api/keywordsai/experiments/logs/search", keywordsaiApiKey, payload);
+        const data = await postProxy("/api/respan/experiments/logs/search", respanApiKey, payload);
         setR11(data);
         const ck = (data as any)?.response?.comparison_key;
         if (ck) setComparisonKey(String(ck));
@@ -249,7 +249,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
         const payload = {
           comparison_key: comparisonKey,
         };
-        const data = await postProxy("/api/keywordsai/experiments/logs/summary", keywordsaiApiKey, payload);
+        const data = await postProxy("/api/respan/experiments/logs/summary", respanApiKey, payload);
         setR11(data);
       } finally {
         setLoading(null);
@@ -262,7 +262,7 @@ export function DevelopExperimentsSection(props: { keywordsaiApiKey: string }) {
         const payload = {
           comparison_key: comparisonKey,
         };
-        const data = await postProxy("/api/keywordsai/experiments/logs/export", keywordsaiApiKey, payload);
+        const data = await postProxy("/api/respan/experiments/logs/export", respanApiKey, payload);
         setR11(data);
       } finally {
         setLoading(null);

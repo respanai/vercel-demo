@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   if (!prompt_id) return Response.json({ error: "prompt_id is required" }, { status: 400 });
   if (!prompt_version_id) return Response.json({ error: "prompt_version_id is required" }, { status: 400 });
 
-  const url = `https://api.keywordsai.co/api/prompts/${encodeURIComponent(String(prompt_id))}/versions/${encodeURIComponent(
+  const url = `https://api.respan.ai/api/prompts/${encodeURIComponent(String(prompt_id))}/versions/${encodeURIComponent(
     String(prompt_version_id),
   )}/`;
   const upstream = await fetch(url, {

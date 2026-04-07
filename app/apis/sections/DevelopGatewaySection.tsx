@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
-export function DevelopGatewaySection(props: { keywordsaiApiKey: string }) {
-  const { keywordsaiApiKey } = props;
+export function DevelopGatewaySection(props: { respanApiKey: string }) {
+  const { respanApiKey } = props;
 
   const fixedPayload = {
     model: "gpt-4o-mini",
@@ -22,7 +22,7 @@ export function DevelopGatewaySection(props: { keywordsaiApiKey: string }) {
     setLoading(true);
     setResult(null);
     try {
-      const data = await postProxy("/api/keywordsai/gateway/chat-completions", keywordsaiApiKey, fixedPayload);
+      const data = await postProxy("/api/respan/gateway/chat-completions", respanApiKey, fixedPayload);
       setResult(data);
     } finally {
       setLoading(false);

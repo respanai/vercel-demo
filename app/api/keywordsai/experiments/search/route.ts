@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const url = "https://api.keywordsai.co/api/v2/experiments/search/";
+  const url = "https://api.respan.ai/api/v2/experiments/search/";
 
   const upstream = await fetch(url, {
     method: "POST",

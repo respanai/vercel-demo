@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   if (!experiment_id) return Response.json({ error: "experiment_id is required" }, { status: 400 });
   if (!log_id) return Response.json({ error: "log_id is required" }, { status: 400 });
 
-  const url = `https://api.keywordsai.co/api/v2/experiments/${encodeURIComponent(experiment_id)}/logs/${encodeURIComponent(
+  const url = `https://api.respan.ai/api/v2/experiments/${encodeURIComponent(experiment_id)}/logs/${encodeURIComponent(
     log_id,
   )}`;
   const upstream = await fetch(url, { method: "GET", headers: { Authorization: `Bearer ${apiKey}` } });

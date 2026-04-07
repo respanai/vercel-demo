@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const { page = 1, page_size = 100, environment, filters = {} } = body ?? {};
 
-  const url = new URL("https://api.keywordsai.co/api/log_threads/");
+  const url = new URL("https://api.respan.ai/api/log_threads/");
   url.searchParams.set("page", String(page));
   url.searchParams.set("page_size", String(page_size));
   if (environment) url.searchParams.set("environment", String(environment));

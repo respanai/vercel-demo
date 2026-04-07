@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     filters = {},
   } = body ?? {};
 
-  const url = new URL("https://api.keywordsai.co/api/request-logs/list/");
+  const url = new URL("https://api.respan.ai/api/request-logs/list/");
   url.searchParams.set("page", String(page));
   url.searchParams.set("page_size", String(page_size));
   url.searchParams.set("sort_by", String(sort_by));

@@ -16,8 +16,8 @@ function pickId(obj: any, keys: string[]): string | undefined {
   return undefined;
 }
 
-export function DevelopPromptsSection(props: { keywordsaiApiKey: string }) {
-  const { keywordsaiApiKey } = props;
+export function DevelopPromptsSection(props: { respanApiKey: string }) {
+  const { respanApiKey } = props;
 
   const demoPromptName = "Demo prompt (vercel-demo)";
   const demoPromptDescription = "Created by /apis → Develop → Prompts (fixed inputs).";
@@ -61,7 +61,7 @@ export function DevelopPromptsSection(props: { keywordsaiApiKey: string }) {
       setLoading("list-prompts");
       setR1(null);
       try {
-        const data = await postProxy("/api/keywordsai/prompts/list", keywordsaiApiKey, {});
+        const data = await postProxy("/api/respan/prompts/list", respanApiKey, {});
         setR1(data);
       } finally {
         setLoading(null);
@@ -71,7 +71,7 @@ export function DevelopPromptsSection(props: { keywordsaiApiKey: string }) {
       setLoading("create-prompt");
       setR2(null);
       try {
-        const data = await postProxy("/api/keywordsai/prompts/create", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/prompts/create", respanApiKey, {
           name: demoPromptName,
           description: demoPromptDescription,
         });
@@ -87,7 +87,7 @@ export function DevelopPromptsSection(props: { keywordsaiApiKey: string }) {
       setLoading("update-prompt");
       setR3(null);
       try {
-        const data = await postProxy("/api/keywordsai/prompts/update", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/prompts/update", respanApiKey, {
           prompt_id: promptId,
           name: demoPromptNameUpdated,
           description: demoPromptDescriptionUpdated,
@@ -102,7 +102,7 @@ export function DevelopPromptsSection(props: { keywordsaiApiKey: string }) {
       setLoading("delete-prompt");
       setR4(null);
       try {
-        const data = await postProxy("/api/keywordsai/prompts/delete", keywordsaiApiKey, { prompt_id: promptId });
+        const data = await postProxy("/api/respan/prompts/delete", respanApiKey, { prompt_id: promptId });
         setR4(data);
       } finally {
         setLoading(null);
@@ -113,7 +113,7 @@ export function DevelopPromptsSection(props: { keywordsaiApiKey: string }) {
       setLoading("list-versions");
       setR5(null);
       try {
-        const data = await postProxy("/api/keywordsai/prompts/versions/list", keywordsaiApiKey, { prompt_id: promptId });
+        const data = await postProxy("/api/respan/prompts/versions/list", respanApiKey, { prompt_id: promptId });
         setR5(data);
       } finally {
         setLoading(null);
@@ -124,7 +124,7 @@ export function DevelopPromptsSection(props: { keywordsaiApiKey: string }) {
       setLoading("create-version");
       setR6(null);
       try {
-        const createData = await postProxy("/api/keywordsai/prompts/versions/create", keywordsaiApiKey, {
+        const createData = await postProxy("/api/respan/prompts/versions/create", respanApiKey, {
           prompt_id: promptId,
           description: "Version created by vercel-demo (fixed inputs).",
           messages: demoMessages,
@@ -136,7 +136,7 @@ export function DevelopPromptsSection(props: { keywordsaiApiKey: string }) {
         if (id) {
           setVersionId(id);
           // Deploy the newly created version via PATCH
-          const deployData = await postProxy("/api/keywordsai/prompts/versions/update", keywordsaiApiKey, {
+          const deployData = await postProxy("/api/respan/prompts/versions/update", respanApiKey, {
             prompt_id: promptId,
             prompt_version_id: id,
             deploy: true,
@@ -154,7 +154,7 @@ export function DevelopPromptsSection(props: { keywordsaiApiKey: string }) {
       setLoading("update-version");
       setR7(null);
       try {
-        const data = await postProxy("/api/keywordsai/prompts/versions/update", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/prompts/versions/update", respanApiKey, {
           prompt_id: promptId,
           prompt_version_id: versionId,
           messages: demoMessages,
@@ -172,7 +172,7 @@ export function DevelopPromptsSection(props: { keywordsaiApiKey: string }) {
       setLoading("delete-version");
       setR8(null);
       try {
-        const data = await postProxy("/api/keywordsai/prompts/versions/delete", keywordsaiApiKey, {
+        const data = await postProxy("/api/respan/prompts/versions/delete", respanApiKey, {
           prompt_id: promptId,
           prompt_version_id: versionId,
         });

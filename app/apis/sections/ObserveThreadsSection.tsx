@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
-export function ObserveThreadsSection(props: { keywordsaiApiKey: string }) {
-  const { keywordsaiApiKey } = props;
+export function ObserveThreadsSection(props: { respanApiKey: string }) {
+  const { respanApiKey } = props;
 
   const demoThreadIdentifier = "thread_demo_123";
   const demoCustomerIdentifier = "customer_thread_demo_123";
@@ -21,7 +21,7 @@ export function ObserveThreadsSection(props: { keywordsaiApiKey: string }) {
     setThreadsLoading("create");
     setCreateLogResult(null);
     try {
-      const data = await postProxy("/api/keywordsai/logs/create", keywordsaiApiKey, {
+      const data = await postProxy("/api/respan/logs/create", respanApiKey, {
         customer_identifier: demoCustomerIdentifier,
         thread_identifier: demoThreadIdentifier,
       });
@@ -35,7 +35,7 @@ export function ObserveThreadsSection(props: { keywordsaiApiKey: string }) {
     setThreadsLoading("list");
     setThreadsResult(null);
     try {
-      const data = await postProxy("/api/keywordsai/threads/list", keywordsaiApiKey, {
+      const data = await postProxy("/api/respan/threads/list", respanApiKey, {
         page: 1,
         page_size: 50,
         filters: {

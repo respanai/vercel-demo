@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const url = "https://api.keywordsai.co/api/v2/experiments/list";
+  const url = "https://api.respan.ai/api/v2/experiments/list";
   const upstream = await fetch(url, { method: "GET", headers: { Authorization: `Bearer ${apiKey}` } });
 
   const text = await upstream.text();

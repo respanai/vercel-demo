@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const upstream = await fetch("https://api.keywordsai.co/api/chat/completions", {
+  const upstream = await fetch("https://api.respan.ai/api/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify(body ?? {}),
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     );
   }
 
-  return Response.json({ url: "https://api.keywordsai.co/api/chat/completions", request: body, response: json });
+  return Response.json({ url: "https://api.respan.ai/api/chat/completions", request: body, response: json });
 }
 
 

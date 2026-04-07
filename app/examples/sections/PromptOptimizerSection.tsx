@@ -696,9 +696,9 @@ function WelcomeMessage({ onSelect }: { onSelect: (text: string) => void }) {
 // ---------------------------------------------------------------------------
 
 export function PromptOptimizerSection(props: {
-  keywordsaiApiKey: string;
+  respanApiKey: string;
 }) {
-  const { keywordsaiApiKey } = props;
+  const { respanApiKey } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -714,8 +714,8 @@ export function PromptOptimizerSection(props: {
   } = useChat({
     api: "/api/prompt-optimizer",
     headers: {
-      ...(keywordsaiApiKey
-        ? { "x-keywordsai-api-key": keywordsaiApiKey }
+      ...(respanApiKey
+        ? { "x-respan-api-key": respanApiKey }
         : {}),
     },
   });

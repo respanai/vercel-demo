@@ -10,16 +10,16 @@ export function ApiKeyInputs(props: {
   showOpenAI?: boolean;
   openaiApiKey: string;
   setOpenaiApiKey: (v: string) => void;
-  keywordsaiApiKey: string;
-  setKeywordsaiApiKey: (v: string) => void;
+  respanApiKey: string;
+  setRespanApiKey: (v: string) => void;
   disabled?: boolean;
 }) {
   const {
     showOpenAI = false,
     openaiApiKey,
     setOpenaiApiKey,
-    keywordsaiApiKey,
-    setKeywordsaiApiKey,
+    respanApiKey,
+    setRespanApiKey,
     disabled = false,
   } = props;
 
@@ -64,19 +64,19 @@ export function ApiKeyInputs(props: {
 
         <div>
           <Label className="mb-2 block">
-            KeywordsAI (<span className="font-bold">KEYWORDSAI_API_KEY</span>)
+            Respan (<span className="font-bold">RESPAN_API_KEY</span>)
           </Label>
           <div className="flex gap-2">
             <Input
               className="flex-1"
               type={show ? "text" : "password"}
-              placeholder="kwai_... (optional)"
-              value={keywordsaiApiKey}
-              onChange={(e) => setKeywordsaiApiKey(e.target.value)}
+              placeholder="(optional)"
+              value={respanApiKey}
+              onChange={(e) => setRespanApiKey(e.target.value)}
               autoComplete="off"
               disabled={disabled}
             />
-            <Button disabled={disabled} onClick={() => setKeywordsaiApiKey("")}>
+            <Button disabled={disabled} onClick={() => setRespanApiKey("")}>
               Clear
             </Button>
           </div>

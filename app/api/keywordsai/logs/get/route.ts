@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Missing unique_id" }, { status: 400 });
   }
 
-  const url = `https://api.keywordsai.co/api/request-logs/${encodeURIComponent(unique_id)}/`;
+  const url = `https://api.respan.ai/api/request-logs/${encodeURIComponent(unique_id)}/`;
   const upstream = await fetch(url, {
     method: "GET",
     headers: {

@@ -1,12 +1,12 @@
 import { tool } from "ai";
 import { z } from "zod";
 import {
-  callKeywordsAI,
+  callRespan,
   callGateway,
   extractJSON,
   computeParetoFrontier,
   type ParetoEntry,
-} from "./keywords-api";
+} from "./respan-api";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -44,7 +44,7 @@ async function deployVersion(
   model: string,
 ): Promise<number> {
   // Check if the version is already readonly
-  const versionsRes = (await callKeywordsAI(
+  const versionsRes = (await callRespan(
     apiKey,
     "GET",
     `/api/prompts/${promptId}/versions/`,
@@ -58,14 +58,14 @@ async function deployVersion(
 
   if (target && target.readonly !== true) {
     // Draft version — create a new version to lock this one as readonly
-    await callKeywordsAI(apiKey, "POST", `/api/prompts/${promptId}/versions/`, {
+    await callRespan(apiKey, "POST", `/api/prompts/${promptId}/versions/`, {
       messages,
       model,
     });
   }
 
   // Now the target version is readonly — deploy it
-  await callKeywordsAI(
+  await callRespan(
     apiKey,
     "PATCH",
     `/api/prompts/${promptId}/versions/${versionNum}/`,
@@ -81,18 +81,18 @@ export function tools(apiKey: string) {
     // -------------------------------------------------------------------
     fetch_prompt: tool({
       description:
-        "Fetch an existing prompt from Keywords AI, including its deployed version, messages, and variables.",
+        "Fetch an existing prompt from Respan, including its deployed version, messages, and variables.",
       parameters: z.object({
         prompt_id: z.string().describe("The prompt ID to fetch"),
       }),
       execute: async ({ prompt_id }) => {
-        const promptData = (await callKeywordsAI(
+        const promptData = (await callRespan(
           apiKey,
           "GET",
           `/api/prompts/${prompt_id}/`,
         )) as Record<string, unknown>;
 
-        const versionsRes = (await callKeywordsAI(
+        const versionsRes = (await callRespan(
           apiKey,
           "GET",
           `/api/prompts/${prompt_id}/versions/`,
@@ -144,7 +144,7 @@ export function tools(apiKey: string) {
     // -------------------------------------------------------------------
     create_prompt: tool({
       description:
-        "Create a new prompt in Keywords AI with a system prompt and optional user template.",
+        "Create a new prompt in Respan with a system prompt and optional user template.",
       parameters: z.object({
         name: z.string().describe("Name for the prompt"),
         system_prompt: z.string().describe("The system prompt content"),
@@ -156,7 +156,7 @@ export function tools(apiKey: string) {
           ),
       }),
       execute: async ({ name, system_prompt, user_template }) => {
-        const promptRes = (await callKeywordsAI(
+        const promptRes = (await callRespan(
           apiKey,
           "POST",
           `/api/prompts/`,
@@ -173,7 +173,7 @@ export function tools(apiKey: string) {
         }
 
         // Create v1 (draft)
-        const versionRes = (await callKeywordsAI(
+        const versionRes = (await callRespan(
           apiKey,
           "POST",
           `/api/prompts/${promptId}/versions/`,
@@ -211,7 +211,7 @@ export function tools(apiKey: string) {
     // -------------------------------------------------------------------
     generate_test_cases: tool({
       description:
-        "Generate targeted test cases for a prompt and create a dataset in Keywords AI. Uses a powerful model for high-quality generation.",
+        "Generate targeted test cases for a prompt and create a dataset in Respan. Uses a powerful model for high-quality generation.",
       parameters: z.object({
         prompt_id: z.string().describe("The prompt ID"),
         prompt_messages: z
@@ -327,14 +327,14 @@ Return ONLY a JSON array, no other text.`;
         });
 
         // Create dataset
-        const promptData = (await callKeywordsAI(
+        const promptData = (await callRespan(
           apiKey,
           "GET",
           `/api/prompts/${prompt_id}/`,
         )) as Record<string, unknown>;
         const promptName = String(promptData.name ?? "prompt");
 
-        const dsRes = (await callKeywordsAI(apiKey, "POST", `/api/datasets/`, {
+        const dsRes = (await callRespan(apiKey, "POST", `/api/datasets/`, {
           name: `Optimizer - ${promptName.slice(0, 60)}`,
           is_empty: true,
         })) as { id: string };
@@ -343,7 +343,7 @@ Return ONLY a JSON array, no other text.`;
 
         // Add logs
         for (const tc of testCases) {
-          await callKeywordsAI(
+          await callRespan(
             apiKey,
             "POST",
             `/api/datasets/${datasetId}/logs/`,
@@ -367,7 +367,7 @@ Return ONLY a JSON array, no other text.`;
     // -------------------------------------------------------------------
     create_evaluators: tool({
       description:
-        "Create LLM-based evaluators in Keywords AI, one per metric. Each evaluator scores outputs on a 0-10 scale.",
+        "Create LLM-based evaluators in Respan, one per metric. Each evaluator scores outputs on a 0-10 scale.",
       parameters: z.object({
         metrics: z
           .array(
@@ -398,7 +398,7 @@ Return ONLY a JSON array, no other text.`;
         }> = [];
 
         for (const metric of metrics) {
-          const res = (await callKeywordsAI(
+          const res = (await callRespan(
             apiKey,
             "POST",
             `/api/evaluators/`,
@@ -458,7 +458,7 @@ Return ONLY a JSON array, no other text.`;
         // improve_prompt, so this is a safety check.
 
         // Create experiment with ALL evaluator slugs in one call
-        const expRes = (await callKeywordsAI(
+        const expRes = (await callRespan(
           apiKey,
           "POST",
           `/api/v2/experiments/`,
@@ -484,7 +484,7 @@ Return ONLY a JSON array, no other text.`;
         let expData: Record<string, unknown> = {};
         while (Date.now() - pollStart < maxPollMs) {
           await sleep(5000);
-          expData = (await callKeywordsAI(
+          expData = (await callRespan(
             apiKey,
             "GET",
             `/api/v2/experiments/${experimentId}/`,
@@ -503,7 +503,7 @@ Return ONLY a JSON array, no other text.`;
         let logs: Array<Record<string, unknown>> = [];
         for (let logPoll = 0; logPoll < 20; logPoll++) {
           await sleep(5000);
-          const logsList = (await callKeywordsAI(
+          const logsList = (await callRespan(
             apiKey,
             "GET",
             `/api/v2/experiments/${experimentId}/logs/list/`,
@@ -531,7 +531,7 @@ Return ONLY a JSON array, no other text.`;
           let detail: Record<string, unknown> = {};
           let logScores: Record<string, unknown> | null = null;
           for (let attempt = 0; attempt < 15; attempt++) {
-            detail = (await callKeywordsAI(
+            detail = (await callRespan(
               apiKey,
               "GET",
               `/api/v2/experiments/${experimentId}/logs/${logId}/`,
@@ -718,7 +718,7 @@ Respond with JSON only: { "analysis": "brief analysis of weaknesses", "improved_
         ];
 
         // Create new version (draft)
-        const versionRes = (await callKeywordsAI(
+        const versionRes = (await callRespan(
           apiKey,
           "POST",
           `/api/prompts/${prompt_id}/versions/`,

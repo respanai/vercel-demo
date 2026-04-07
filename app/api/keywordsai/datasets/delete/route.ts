@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const dataset_id = String(body?.dataset_id || body?.id || "").trim();
   if (!dataset_id) return Response.json({ error: "dataset_id is required" }, { status: 400 });
 
-  const url = `https://api.keywordsai.co/api/datasets/${encodeURIComponent(dataset_id)}/`;
+  const url = `https://api.respan.ai/api/datasets/${encodeURIComponent(dataset_id)}/`;
   const upstream = await fetch(url, { method: "DELETE", headers: { Authorization: `Bearer ${apiKey}` } });
 
   if (upstream.status === 204) {
