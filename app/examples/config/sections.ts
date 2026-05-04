@@ -16,6 +16,11 @@ export const EXAMPLE_PAGES: ExamplePage[] = [
     href: "/examples/banking-chatbot",
   },
   {
+    label: "Customer email + cost tracking",
+    description: "Minimal Vercel AI SDK recipe that populates the Customer email column AND preserves LLM cost/tokens.",
+    href: "/examples/customer-tracking",
+  },
+  {
     label: "SEC compliance reviewer",
     description: "Paste marketing content; AI flags Rule 206(4)-1 violations with inline highlighting.",
     href: "/examples/sec-compliance",
