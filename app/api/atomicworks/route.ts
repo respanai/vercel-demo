@@ -120,29 +120,15 @@ function render(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
 }
 
-/** Fetch a managed prompt's live version from Respan and render its system text. */
-async function fetchManagedPrompt(
-  apiKey: string,
-  promptId: string,
-  vars: Record<string, string>
-): Promise<{ system: string; version?: number } | null> {
-  try {
-    const res = await fetch(`${GATEWAY_BASE}/api/prompts/${encodeURIComponent(promptId)}/`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const v = data?.live_version || data?.current_version;
-    const messages: Array<{ role: string; content: string }> = v?.messages || [];
-    const system = messages
-      .filter((m) => m.role === "system" || m.role === "developer")
-      .map((m) => m.content)
-      .join("\n\n");
-    if (!system) return null;
-    return { system: render(system, vars), version: v?.version };
-  } catch {
-    return null;
-  }
+/**
+ * Build the `X-Data-Respan-Params` header (base64 JSON). This is how we pass the
+ * managed prompt reference (prompt_id + variables) and tracing params THROUGH the
+ * Vercel AI SDK — the SDK strips unknown body fields, but it forwards custom
+ * headers untouched. Respan renders the managed prompt server-side and links the
+ * log to the prompt version, so we send only variables, not rendered text.
+ */
+function respanParamsHeader(params: Record<string, unknown>): Record<string, string> {
+  return { "X-Data-Respan-Params": Buffer.from(JSON.stringify(params)).toString("base64") };
 }
 
 // ---------------------------------------------------------------------------
@@ -198,73 +184,87 @@ export async function POST(req: Request) {
                 emit({ type: "service_start", service: key, label: svc.label, tool: svc.tool });
                 const startedAt = Date.now();
 
-                await withAgent({ name: `${key}-service` }, async () => {
-                  // 1) Resolve the prompt: managed (Respan) → inline fallback.
-                  let system = render(INLINE_PROMPTS[key], promptVars);
-                  let promptVersion: number | undefined;
-                  let promptSource: "managed" | "inline" = "inline";
-                  const promptId = tenant.prompts[key];
-                  if (promptId) {
-                    const managed = await fetchManagedPrompt(apiKey, promptId, promptVars);
-                    if (managed) {
-                      system = managed.system;
-                      promptVersion = managed.version;
-                      promptSource = "managed";
+                // Tag the whole agent subtree (agent + LLM + tool spans) with the
+                // service name so the multi-agent split is filterable per agent
+                // (metadata__agent) AND per tenant (customer_identifier) in Respan.
+                await propagateAttributes({ metadata: { agent: key, service: key } }, async () => {
+                  await withAgent({ name: `${key}-service` }, async () => {
+                    const promptId = tenant.prompts[key];
+                    const promptSource: "managed" | "inline" = promptId ? "managed" : "inline";
+
+                    const userPrompt =
+                      key === "triage"
+                        ? `Incoming request:\n"${scenario.request}"`
+                        : `Ticket ${ticketId}. Triage note: ${triageNote || "(n/a)"}\nRequest: "${scenario.request}"`;
+
+                    // Managed prompt → reference it by id + variables via the gateway
+                    // header (Respan renders server-side). Fallback → inline system.
+                    const messages: Array<{ role: "system" | "user"; content: string }> = [
+                      { role: "user", content: userPrompt },
+                    ];
+                    const gatewayParams: Record<string, unknown> = {
+                      customer_identifier: tenant.customerIdentifier,
+                      thread_identifier: ticketId,
+                      metadata: { service: key, agent: key, workflow: "ticket.resolve", ticket_id: ticketId },
+                    };
+                    if (promptId) {
+                      gatewayParams.prompt = {
+                        prompt_id: promptId,
+                        schema_version: 2,
+                        variables: { ...promptVars, request: scenario.request, triage_note: triageNote },
+                      };
                       totals.promptsManaged += 1;
+                    } else {
+                      messages.unshift({ role: "system", content: render(INLINE_PROMPTS[key], promptVars) });
                     }
-                  }
 
-                  const userPrompt =
-                    key === "triage"
-                      ? `Incoming request:\n"${scenario.request}"`
-                      : `Ticket ${ticketId}. Triage note: ${triageNote || "(n/a)"}\nRequest: "${scenario.request}"`;
-
-                  // 2) LLM call via AI SDK through the Respan gateway → nested span.
-                  const result = await generateText({
-                    model: provider(tenant.model),
-                    system,
-                    prompt: userPrompt,
-                    experimental_telemetry: {
-                      isEnabled: true,
-                      functionId: `${key}-service`,
-                      metadata: {
-                        customer_params: JSON.stringify({
-                          customer_identifier: tenant.customerIdentifier,
-                          name: tenant.displayName,
-                        }),
-                        service: key,
-                        workflow: "ticket.resolve",
-                        ticket_id: ticketId,
-                        ...(promptId ? { prompt_id: promptId } : {}),
-                        ...(promptVersion != null ? { prompt_version: promptVersion } : {}),
+                    // LLM call via AI SDK through the Respan gateway → nested span,
+                    // with the managed-prompt reference carried in the header.
+                    const result = await generateText({
+                      model: provider(tenant.model),
+                      messages,
+                      headers: respanParamsHeader(gatewayParams),
+                      experimental_telemetry: {
+                        isEnabled: true,
+                        functionId: `${key}-service`,
+                        metadata: {
+                          customer_params: JSON.stringify({
+                            customer_identifier: tenant.customerIdentifier,
+                            name: tenant.displayName,
+                          }),
+                          service: key,
+                          agent: key,
+                          workflow: "ticket.resolve",
+                          ticket_id: ticketId,
+                          ...(promptId ? { prompt_id: promptId } : {}),
+                        },
                       },
-                    },
-                  });
+                    });
 
-                  const summary = result.text.trim();
-                  if (key === "triage") triageNote = summary;
-                  totals.tokens += result.usage?.totalTokens ?? 0;
+                    const summary = result.text.trim();
+                    if (key === "triage") triageNote = summary;
+                    totals.tokens += result.usage?.totalTokens ?? 0;
 
-                  // 3) Backend tool call → nested withTool span.
-                  let toolResult: Record<string, unknown> = {};
-                  await withTool({ name: svc.tool }, async () => {
-                    toolResult = await TOOLS[svc.tool]({ tenant, scenario });
-                  });
+                    // Backend tool call → nested withTool span.
+                    let toolResult: Record<string, unknown> = {};
+                    await withTool({ name: svc.tool }, async () => {
+                      toolResult = await TOOLS[svc.tool]({ tenant, scenario });
+                    });
 
-                  const ms = Date.now() - startedAt;
-                  totals.ms += ms;
-                  totals.services += 1;
-                  emit({
-                    type: "service_done",
-                    service: key,
-                    label: svc.label,
-                    summary,
-                    tool: svc.tool,
-                    toolResult,
-                    promptSource,
-                    promptVersion,
-                    tokens: result.usage?.totalTokens ?? 0,
-                    ms,
+                    const ms = Date.now() - startedAt;
+                    totals.ms += ms;
+                    totals.services += 1;
+                    emit({
+                      type: "service_done",
+                      service: key,
+                      label: svc.label,
+                      summary,
+                      tool: svc.tool,
+                      toolResult,
+                      promptSource,
+                      tokens: result.usage?.totalTokens ?? 0,
+                      ms,
+                    });
                   });
                 });
               }
