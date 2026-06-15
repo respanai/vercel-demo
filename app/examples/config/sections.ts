@@ -2,9 +2,16 @@ export interface ExamplePage {
   label: string;
   description: string;
   href: string;
+  featured?: boolean;
 }
 
 export const EXAMPLE_PAGES: ExamplePage[] = [
+  {
+    label: "Multi-tenant AI Service Desk",
+    description: "Two tenants run concurrently through a multi-agent pipeline with per-tenant managed prompts; Respan separates traffic by customer_identifier.",
+    href: "/examples/atomicworks",
+    featured: true,
+  },
   {
     label: "Invoice generator",
     description: "Paste invoice details; AI extracts structured fields via Gateway + JSON schema.",
