@@ -121,14 +121,33 @@ function render(template: string, vars: Record<string, string>): string {
 }
 
 /**
- * Build the `X-Data-Respan-Params` header (base64 JSON). This is how we pass the
- * managed prompt reference (prompt_id + variables) and tracing params THROUGH the
- * Vercel AI SDK — the SDK strips unknown body fields, but it forwards custom
- * headers untouched. Respan renders the managed prompt server-side and links the
- * log to the prompt version, so we send only variables, not rendered text.
+ * Fetch a DEPLOYED managed prompt from Respan and render its messages with the
+ * given variables. We render client-side (rather than via the gateway prompt
+ * object) so the fully-rendered prompt — including the {{request}} user turn —
+ * lands in the trace span, while the prompt itself stays managed/versioned in
+ * Respan (we tag prompt_id + version for filtering).
  */
-function respanParamsHeader(params: Record<string, unknown>): Record<string, string> {
-  return { "X-Data-Respan-Params": Buffer.from(JSON.stringify(params)).toString("base64") };
+async function fetchRenderedPrompt(
+  apiKey: string,
+  promptId: string,
+  vars: Record<string, string>
+): Promise<{ messages: Array<{ role: "system" | "user" | "assistant"; content: string }>; version?: number } | null> {
+  try {
+    const res = await fetch(`${GATEWAY_BASE}/api/prompts/${encodeURIComponent(promptId)}/`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const v = data?.live_version || data?.current_version;
+    const msgs: Array<{ role: string; content: string }> = v?.messages;
+    if (!Array.isArray(msgs) || msgs.length === 0) return null;
+    return {
+      messages: msgs.map((m) => ({ role: m.role as "system" | "user" | "assistant", content: render(m.content, vars) })),
+      version: v?.version,
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -190,40 +209,37 @@ export async function POST(req: Request) {
                 await propagateAttributes({ metadata: { agent: key, service: key } }, async () => {
                   await withAgent({ name: `${key}-service` }, async () => {
                     const promptId = tenant.prompts[key];
-                    const promptSource: "managed" | "inline" = promptId ? "managed" : "inline";
-
-                    const userPrompt =
-                      key === "triage"
-                        ? `Incoming request:\n"${scenario.request}"`
-                        : `Ticket ${ticketId}. Triage note: ${triageNote || "(n/a)"}\nRequest: "${scenario.request}"`;
-
-                    // Managed prompt → reference it by id + variables via the gateway
-                    // header (Respan renders server-side). Fallback → inline system.
-                    const messages: Array<{ role: "system" | "user"; content: string }> = [
-                      { role: "user", content: userPrompt },
-                    ];
-                    const gatewayParams: Record<string, unknown> = {
-                      customer_identifier: tenant.customerIdentifier,
-                      thread_identifier: ticketId,
-                      metadata: { service: key, agent: key, workflow: "ticket.resolve", ticket_id: ticketId },
+                    // Variables fed into the managed prompt template. The request +
+                    // triage note are real {{...}} variables now (rendered into the
+                    // user turn of the prompt), so they show up in the trace.
+                    const vars = {
+                      ...promptVars,
+                      request: scenario.request,
+                      triage_note: key === "triage" ? "(this is the triage step)" : triageNote || "(n/a)",
                     };
-                    if (promptId) {
-                      gatewayParams.prompt = {
-                        prompt_id: promptId,
-                        schema_version: 2,
-                        variables: { ...promptVars, request: scenario.request, triage_note: triageNote },
-                      };
+
+                    // Pull the deployed managed prompt and render it client-side, so
+                    // the full rendered prompt lands in the trace span. Inline fallback.
+                    let messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+                    let promptVersion: number | undefined;
+                    let promptSource: "managed" | "inline" = "inline";
+                    const managed = promptId ? await fetchRenderedPrompt(apiKey, promptId, vars) : null;
+                    if (managed) {
+                      messages = managed.messages;
+                      promptVersion = managed.version;
+                      promptSource = "managed";
                       totals.promptsManaged += 1;
                     } else {
-                      messages.unshift({ role: "system", content: render(INLINE_PROMPTS[key], promptVars) });
+                      messages = [
+                        { role: "system", content: render(INLINE_PROMPTS[key], promptVars) },
+                        { role: "user", content: `Incoming request:\n${vars.request}\n\nTriage note: ${vars.triage_note}` },
+                      ];
                     }
 
-                    // LLM call via AI SDK through the Respan gateway → nested span,
-                    // with the managed-prompt reference carried in the header.
+                    // LLM call via AI SDK through the Respan gateway → nested span.
                     const result = await generateText({
                       model: provider(tenant.model),
                       messages,
-                      headers: respanParamsHeader(gatewayParams),
                       experimental_telemetry: {
                         isEnabled: true,
                         functionId: `${key}-service`,
@@ -237,6 +253,7 @@ export async function POST(req: Request) {
                           workflow: "ticket.resolve",
                           ticket_id: ticketId,
                           ...(promptId ? { prompt_id: promptId } : {}),
+                          ...(promptVersion != null ? { prompt_version: promptVersion } : {}),
                         },
                       },
                     });
@@ -262,6 +279,7 @@ export async function POST(req: Request) {
                       tool: svc.tool,
                       toolResult,
                       promptSource,
+                      promptVersion,
                       tokens: result.usage?.totalTokens ?? 0,
                       ms,
                     });
