@@ -287,7 +287,7 @@ export async function POST(req: Request) {
                           workflow: workflowName,
                           ticket_id: ticketId,
                           ...(promptId ? { prompt_id: promptId } : {}),
-                          ...(promptVersion != null ? { prompt_version: promptVersion } : {}),
+                          ...(promptVersion != null ? { prompt_version_number: promptVersion } : {}),
                         },
                       },
                     });
