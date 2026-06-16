@@ -358,13 +358,6 @@ export async function POST(req: Request) {
       } catch (err) {
         emit({ type: "error", message: err instanceof Error ? err.message : "Pipeline error" });
       } finally {
-        // Serverless (Vercel): force-flush the OTEL spans before the function
-        // suspends — batched spans are otherwise dropped and no trace appears.
-        try {
-          await (globalThis as typeof globalThis & { __respan?: { flush(): Promise<void> } }).__respan?.flush();
-        } catch {
-          /* flush is best-effort */
-        }
         controller.close();
       }
     },

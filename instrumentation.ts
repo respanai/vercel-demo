@@ -8,7 +8,4 @@ export async function register() {
     instrumentations: [new VercelAIInstrumentor()],
   });
   await respan.initialize();
-  // Stash the client so request handlers can force-flush spans before the
-  // serverless function suspends (batched spans are otherwise lost on Vercel).
-  (globalThis as typeof globalThis & { __respan?: Respan }).__respan = respan;
 }
