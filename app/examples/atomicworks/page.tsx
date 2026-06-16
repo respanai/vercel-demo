@@ -1,13 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ApiKeyInputs } from "../../components/ApiKeyInputs";
 import { OpsConsole } from "./OpsConsole";
 import { PLATFORM_URL } from "../../config/site";
 
 export default function AtomicworksDemoPage() {
+  // useSearchParams() requires a Suspense boundary for the production build.
+  return (
+    <Suspense fallback={null}>
+      <AtomicworksDemo />
+    </Suspense>
+  );
+}
+
+function AtomicworksDemo() {
   const searchParams = useSearchParams();
   const embed = searchParams.get("embed") === "true";
   const [respanApiKey, setRespanApiKey] = useState("");
