@@ -1017,10 +1017,10 @@
   dependencies:
     "@radix-ui/react-compose-refs" "1.1.2"
 
-"@respan/instrumentation-vercel@^1.0.3":
-  version "1.0.3"
-  resolved "https://registry.yarnpkg.com/@respan/instrumentation-vercel/-/instrumentation-vercel-1.0.3.tgz#ebaa9693f657c31656a514815cc93e3ff24a8929"
-  integrity sha512-dpfnN4Q9qePv0jAhfXyr1SP+txzsaq/bRe5zmfh9nXlc37BquGfJPUc1U9m3QXBqK5fwBA5zzVcp9v7fcqIcdw==
+"@respan/instrumentation-vercel@^1.0.8":
+  version "1.0.8"
+  resolved "https://registry.yarnpkg.com/@respan/instrumentation-vercel/-/instrumentation-vercel-1.0.8.tgz#a0173f55696a411593e224683a2972453a9cae6e"
+  integrity sha512-lkuAX8ozGrKOcrTSdW23DEOxJe4ge0UE7m7l7uKLZYidnJLH4j/EPP0KXMmxzcKucyBwLIDP1E3Og0DGI1o/Qw==
   dependencies:
     "@opentelemetry/api" "^1.9.0"
     "@opentelemetry/sdk-trace-base" "^1.29.0"
