@@ -22,6 +22,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { embed, generateText } from "ai";
 import { trace } from "@opentelemetry/api";
 import { withWorkflow, withAgent, withTool, propagateAttributes } from "@respan/respan";
+import { forceFlush } from "@respan/tracing";
 import {
   GATEWAY_BASE,
   getScenario,
@@ -358,6 +359,15 @@ export async function POST(req: Request) {
       } catch (err) {
         emit({ type: "error", message: err instanceof Error ? err.message : "Pipeline error" });
       } finally {
+        // Serverless (Vercel): force-flush the batched spans before the function
+        // suspends — otherwise the export races the batch timer and the trace is
+        // dropped. forceFlush() exports without tearing down the SDK (unlike
+        // respan.flush()/shutdown), so warm-instance reuse is unaffected.
+        try {
+          await forceFlush();
+        } catch {
+          /* best-effort */
+        }
         controller.close();
       }
     },
