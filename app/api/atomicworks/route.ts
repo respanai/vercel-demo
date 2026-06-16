@@ -19,7 +19,8 @@
  */
 
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateText } from "ai";
+import { embed, generateText } from "ai";
+import { trace } from "@opentelemetry/api";
 import { withWorkflow, withAgent, withTool, propagateAttributes } from "@respan/respan";
 import {
   GATEWAY_BASE,
@@ -120,6 +121,33 @@ function render(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
 }
 
+// ---------------------------------------------------------------------------
+// Custom span kinds (handoff). The standard with* helpers only emit
+// workflow/task/agent/tool; we set `traceloop.span.kind` directly to record an
+// agent-to-agent HANDOFF span, which the processor picks up like any other.
+// ---------------------------------------------------------------------------
+
+const TRACER = trace.getTracer("atomicworks");
+// Canonical Respan attributes (verified against the backend ingestion):
+//  - respan.entity.log_type   → Priority-1 explicit log_type override (→ "handoff")
+//  - traceloop.entity.input/output → promoted to the real input/output columns
+const LOG_TYPE_ATTR = "respan.entity.log_type";
+const ENTITY_INPUT_ATTR = "traceloop.entity.input";
+const ENTITY_OUTPUT_ATTR = "traceloop.entity.output";
+
+/** Emit a typed "handoff" span recording one agent passing control to the next. */
+async function emitHandoff(from: ServiceKey, to: ServiceKey, ticketId: string): Promise<void> {
+  await TRACER.startActiveSpan(`handoff: ${from} → ${to}`, async (span) => {
+    span.setAttribute(LOG_TYPE_ATTR, "handoff");
+    span.setAttribute("traceloop.entity.name", `${from}-to-${to}`);
+    // from/to belong in input/output, not custom properties.
+    span.setAttribute(ENTITY_INPUT_ATTR, JSON.stringify({ from_agent: `${from}-service` }));
+    span.setAttribute(ENTITY_OUTPUT_ATTR, JSON.stringify({ to_agent: `${to}-service` }));
+    span.setAttribute("ticket_id", ticketId);
+    span.end();
+  });
+}
+
 /**
  * Fetch a DEPLOYED managed prompt from Respan and render its messages with the
  * given variables. We render client-side (rather than via the gateway prompt
@@ -181,7 +209,12 @@ export async function POST(req: Request) {
       // Which services run: triage → routed specialist → knowledge → notification
       const plan: ServiceKey[] = ["triage", scenario.route, "knowledge", "notification"];
 
-      emit({ type: "ticket_start", ticketId, tenantId: tenant.id, scenario: scenario.label });
+      // The workflow NAME reflects the ticket type, so the trace list has distinct,
+      // filterable workflows (access-recovery vs incident-response) rather than one
+      // generic "ticket.resolve" for everything.
+      const workflowName = scenario.route === "identity" ? "access-recovery" : "incident-response";
+
+      emit({ type: "ticket_start", ticketId, tenantId: tenant.id, scenario: scenario.label, workflow: workflowName });
 
       try {
         await propagateAttributes(
@@ -189,16 +222,17 @@ export async function POST(req: Request) {
             customer_identifier: tenant.customerIdentifier,
             thread_identifier: ticketId,
             metadata: {
-              workflow: "ticket.resolve",
+              workflow: workflowName,
               tenant: tenant.displayName,
               scenario: scenario.id,
             },
           },
           async () => {
-            await withWorkflow({ name: "ticket.resolve" }, async () => {
+            await withWorkflow({ name: workflowName }, async () => {
               let triageNote = "";
 
-              for (const key of plan) {
+              for (let i = 0; i < plan.length; i++) {
+                const key = plan[i];
                 const svc = SERVICES.find((s) => s.key === key)!;
                 emit({ type: "service_start", service: key, label: svc.label, tool: svc.tool });
                 const startedAt = Date.now();
@@ -250,7 +284,7 @@ export async function POST(req: Request) {
                           }),
                           service: key,
                           agent: key,
-                          workflow: "ticket.resolve",
+                          workflow: workflowName,
                           ticket_id: ticketId,
                           ...(promptId ? { prompt_id: promptId } : {}),
                           ...(promptVersion != null ? { prompt_version: promptVersion } : {}),
@@ -261,6 +295,29 @@ export async function POST(req: Request) {
                     const summary = result.text.trim();
                     if (key === "triage") triageNote = summary;
                     totals.tokens += result.usage?.totalTokens ?? 0;
+
+                    // Knowledge service embeds the query before retrieval → a real
+                    // EMBEDDING span (the instrumentor classifies embed calls).
+                    if (key === "knowledge") {
+                      await embed({
+                        model: provider.embedding("text-embedding-3-small"),
+                        value: scenario.request,
+                        experimental_telemetry: {
+                          isEnabled: true,
+                          functionId: "knowledge-embed-query",
+                          metadata: {
+                            customer_params: JSON.stringify({
+                              customer_identifier: tenant.customerIdentifier,
+                              name: tenant.displayName,
+                            }),
+                            service: key,
+                            agent: key,
+                            workflow: workflowName,
+                            ticket_id: ticketId,
+                          },
+                        },
+                      });
+                    }
 
                     // Backend tool call → nested withTool span.
                     let toolResult: Record<string, unknown> = {};
@@ -285,6 +342,13 @@ export async function POST(req: Request) {
                     });
                   });
                 });
+
+                // Record the handoff to the next agent (also a distinct span kind).
+                if (i < plan.length - 1) {
+                  const next = plan[i + 1];
+                  await emitHandoff(key, next, ticketId);
+                  emit({ type: "handoff", from: key, to: next });
+                }
               }
             });
           }
