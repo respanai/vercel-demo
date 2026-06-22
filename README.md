@@ -1,30 +1,36 @@
-# KeywordsAI Tracing Demo
+# Respan Vercel AI SDK Demo
 
-A Next.js demo application showcasing KeywordsAI tracing features for OpenAI using the Vercel AI SDK.
+A Next.js demo application showcasing Respan tracing, API workflows, and gateway-backed model calls with the Vercel AI SDK.
 
-## Example Groups
+## What This Demo Includes
 
-This demo is organized into three core showcase areas:
+1. **APIs**: Interactive examples for Respan logs, traces, users, threads, datasets, prompts, experiments, and gateway requests.
+2. **Examples**: End-to-end use cases such as banking support, SEC compliance review, lead qualification, prompt optimization, customer tracking, and multi-tenant service desk workflows.
 
-1.  **Basic Trace & Workflow**: Combines **Quickstart**, **Metadata/Params** (Customer ID & Group ID), and **Agent Handoff** (Multi-step triage) into a single execution.
-2.  **Tool Use**: Demonstrates an agent interacting with external functions (e.g., Weather Tool).
-3.  **Override Span**: Shows how to customize trace names and data for specific spans.
+## Gateway-First Setup
 
-## Getting Started
+This demo routes model calls through the Respan gateway. Vercel does not need an `OPENAI_API_KEY` for the included examples.
 
-## Recommended: run locally with env vars
+The server routes use the OpenAI-compatible Vercel AI SDK provider with Respan credentials. Requests resolve credentials in this order: the UI-provided `x-respan-api-key` header first, then `RESPAN_API_KEY` from Vercel/`.env.local`.
 
-This demo is simplest (and safest) when you run it locally with environment variables.
+```ts
+const apiKey = getRespanApiKey(req); // x-respan-api-key first, then RESPAN_API_KEY
 
-Docs: [KeywordsAI Vercel AI SDK tracing docs](https://docs.keywordsai.co/integration/development-frameworks/tracing/vercel-tracing?utm_source=agentblocks)
+createOpenAI({
+  apiKey,
+  baseURL: getRespanGatewayBaseUrl(),
+});
+```
 
-## Local setup
+Docs: [Respan documentation overview](https://www.respan.ai/docs/documentation/overview)
+
+## Local Setup
 
 ### Prerequisites
 
-- Node.js 18+
-- OpenAI API key
-- KeywordsAI API key ([Get one here](https://platform.keywordsai.co))
+- Node.js 20+
+- Yarn 1.x
+- Respan API key from [platform.respan.ai](https://platform.respan.ai)
 
 ### Install
 
@@ -32,72 +38,73 @@ Docs: [KeywordsAI Vercel AI SDK tracing docs](https://docs.keywordsai.co/integra
 yarn install
 ```
 
-> **Note**: This project uses traditional `node_modules` for Turbopack compatibility.
+> This project uses traditional `node_modules` for Turbopack compatibility.
 
-### Configure env vars
+### Configure Env Vars
 
-Create a `.env.local` file in `example_scripts/vercel/`:
+Create a `.env.local` file in this repo root:
 
 ```bash
-# KeywordsAI Configuration (enables tracing)
-KEYWORDSAI_API_KEY=your_keywordsai_api_key_here
-KEYWORDSAI_BASE_URL=https://api.keywordsai.co  # optional
-
-# OpenAI Configuration (enables model calls)
-OPENAI_API_KEY=your_openai_api_key_here
+# Respan gateway + tracing
+RESPAN_API_KEY=your_respan_api_key_here
+RESPAN_BASE_URL=https://api.respan.ai
 ```
 
-### Run
+`RESPAN_BASE_URL` is optional when you use `https://api.respan.ai`, but setting it explicitly keeps local and Vercel environments clear.
+
+### Run Locally
 
 ```bash
 yarn dev
 ```
 
-Open `http://localhost:3000` and click a card to run a demo trace.
+Open `http://localhost:3000` and choose an API section or example card.
 
 ## Deploy to Vercel
 
-### Option A (recommended): use Vercel env vars
+### Recommended: Use Respan Gateway Env Vars
 
-1. Create a Vercel project from this folder (`example_scripts/vercel/`).
-2. In Vercel Project Settings → Environment Variables, add:
-   - `OPENAI_API_KEY`
-   - `KEYWORDSAI_API_KEY`
-   - `KEYWORDSAI_BASE_URL` (optional)
+1. Create or link a Vercel project from this repo root.
+2. In Vercel Project Settings -> Environment Variables, add:
+   - `RESPAN_API_KEY`
+   - `RESPAN_BASE_URL` set to `https://api.respan.ai` unless you use a custom Respan endpoint
 3. Deploy.
 
-This is the most reliable option (especially for tracing), because serverless instances don’t share in-memory state.
+Do not add `OPENAI_API_KEY` for the included gateway-backed demo routes. The routes call models through `https://api.respan.ai/api` using `RESPAN_API_KEY`.
 
-### Option B (demo-only): paste keys into the UI
+### Optional: Paste A Key In The UI
 
-The UI has an **API Keys (optional)** panel:
+The UI has an **API keys (optional)** panel:
 
-- Keys are **not persisted** (refresh clears them).
-- If you set env vars (`OPENAI_API_KEY`, `KEYWORDSAI_API_KEY`) you **don’t need** the UI fields.
-- OpenAI key is sent per request via the `x-openai-api-key` header.
-- KeywordsAI key is sent per request via the `x-keywordsai-api-key` header.
+- Keys are not persisted; refreshing the page clears them.
+- A pasted Respan key is sent per request via the `x-respan-api-key` header and takes precedence over the server env var.
+- If `RESPAN_API_KEY` is set in Vercel or `.env.local`, routes can run without a pasted UI key.
 
-> **Note**: For production tracing, use Vercel env vars (Option A). The UI KeywordsAI key is best-effort and may not work reliably across serverless instances.
+For production or shared demos, prefer Vercel env vars and keep the UI field empty unless you intentionally want to test a different key.
 
-## Security notes
+## Security Notes
 
 - Never commit secrets. This repo ignores `.env*` via `.gitignore`.
-- The UI key inputs are convenient for demos, but they still send secrets over the network to your deployed server. Treat them as sensitive.
+- UI key inputs are convenient for demos, but they still send secrets to your deployed server. Treat them as sensitive.
 
 ## Project Structure
 
 ```
 app/
   api/
-    openai/
-      basic-workflow/      # Combined Handoff + Metadata demo
-      tool-use/            # Agent with tools demo
-      override-span/       # Custom span data demo
-  page.tsx                 # Main Showcase UI
-instrumentation.ts         # KeywordsAI tracing setup
+    respan/                  # Respan API proxy routes used by the API explorer
+    banking-chatbot/         # Gateway-backed example route
+    customer-tracking/       # Gateway-backed example route
+    sec-compliance/          # Gateway-backed example route
+    warmly-lead-qualification/
+    atomicworks/
+    prompt-optimizer/
+  apis/                      # API explorer UI
+  examples/                  # Example showcase UI
+instrumentation.ts           # Respan tracing setup
 ```
 
 ## Learn More
 
-- [KeywordsAI Vercel AI SDK tracing docs](https://docs.keywordsai.co/integration/development-frameworks/tracing/vercel-tracing?utm_source=agentblocks)
-- [Vercel AI SDK Tracing](https://ai-sdk.dev/docs/advanced/telemetry)
+- [Respan documentation overview](https://www.respan.ai/docs/documentation/overview)
+- [Vercel AI SDK telemetry](https://ai-sdk.dev/docs/ai-sdk-core/telemetry)

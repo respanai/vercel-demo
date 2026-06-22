@@ -1,6 +1,10 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
-import { withWorkflow, withTask, withTool, propagateAttributes } from "@respan/respan";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
+import { withTask, withTool, propagateAttributes } from "@respan/respan";
+import { getClient as getTracingSdk } from "@respan/tracing/dist/utils/tracing.js";
+import { getRespanGatewayBaseUrl } from "@/lib/respan";
+import { getRespanApiKey, missingUserRespanApiKeyResponse } from "@/lib/respan";
 
 export const maxDuration = 30;
 
@@ -70,8 +74,119 @@ const BANKING_TOOLS: Record<string, (params: ToolParams) => Promise<unknown>> = 
   },
 };
 
+
 function simulateDelay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const WORKFLOW_NAME = "banking-chatbot";
+const TRACE_GROUP_IDENTIFIER = "banking-chatbot-workflow";
+const CUSTOMER_IDENTIFIER = "banking_demo_user";
+const TRACER = trace.getTracer(WORKFLOW_NAME);
+
+const LOG_TYPE_ATTR = "respan.entity.log_type";
+const ENTITY_INPUT_ATTR = "traceloop.entity.input";
+const ENTITY_OUTPUT_ATTR = "traceloop.entity.output";
+const SPAN_KIND_ATTR = "traceloop.span.kind";
+const WORKFLOW_NAME_ATTR = "traceloop.workflow.name";
+const ENTITY_NAME_ATTR = "traceloop.entity.name";
+const ENTITY_PATH_ATTR = "traceloop.entity.path";
+const CUSTOMER_ID_ATTR = "respan.customer_params.customer_identifier";
+const CUSTOMER_NAME_ATTR = "respan.customer_params.name";
+const THREAD_ID_ATTR = "respan.threads.thread_identifier";
+const SESSION_ID_ATTR = "respan.sessions.session_identifier";
+const TRACE_GROUP_ATTR = "respan.trace.trace_group_identifier";
+const METADATA_WORKFLOW_ATTR = "respan.metadata.workflow";
+const METADATA_MESSAGE_ATTR = "respan.metadata.message";
+
+async function flushTracingWithoutShutdown() {
+  try {
+    const sdk = getTracingSdk() as
+      | {
+          _tracerProvider?: {
+            forceFlush?: () => Promise<void>;
+            activeSpanProcessor?: { forceFlush?: () => Promise<void> };
+          };
+        }
+      | undefined;
+
+    if (typeof sdk?._tracerProvider?.forceFlush === "function") {
+      await sdk._tracerProvider.forceFlush();
+      return;
+    }
+
+    if (typeof sdk?._tracerProvider?.activeSpanProcessor?.forceFlush === "function") {
+      await sdk._tracerProvider.activeSpanProcessor.forceFlush();
+      return;
+    }
+
+    const provider = trace.getTracerProvider() as {
+      forceFlush?: () => Promise<void>;
+      _delegate?: { forceFlush?: () => Promise<void> };
+      getDelegate?: () => { forceFlush?: () => Promise<void> };
+    };
+    const delegate = provider?._delegate ?? provider?.getDelegate?.() ?? provider;
+    await delegate?.forceFlush?.();
+  } catch {
+    // Best effort: do not fail the request because telemetry could not flush.
+  }
+}
+
+async function withBankingWorkflowRoot<T>(
+  params: { threadId: string; message: string },
+  fn: () => Promise<T>
+): Promise<T> {
+  const { threadId, message } = params;
+
+  return TRACER.startActiveSpan(`${WORKFLOW_NAME}.workflow`, async (span) => {
+    span.setAttribute(LOG_TYPE_ATTR, "workflow");
+    span.setAttribute(SPAN_KIND_ATTR, "workflow");
+    span.setAttribute(WORKFLOW_NAME_ATTR, WORKFLOW_NAME);
+    span.setAttribute(ENTITY_NAME_ATTR, WORKFLOW_NAME);
+    span.setAttribute(ENTITY_PATH_ATTR, "");
+    span.setAttribute(CUSTOMER_ID_ATTR, CUSTOMER_IDENTIFIER);
+    span.setAttribute(CUSTOMER_NAME_ATTR, "Rho Banking Demo");
+    span.setAttribute(THREAD_ID_ATTR, threadId);
+    span.setAttribute(SESSION_ID_ATTR, threadId);
+    span.setAttribute(TRACE_GROUP_ATTR, TRACE_GROUP_IDENTIFIER);
+    span.setAttribute(METADATA_WORKFLOW_ATTR, WORKFLOW_NAME);
+    span.setAttribute(METADATA_MESSAGE_ATTR, message);
+    span.setAttribute(ENTITY_INPUT_ATTR, JSON.stringify({ message, thread_id: threadId }));
+
+    try {
+      const result = await fn();
+      span.setAttribute(
+        ENTITY_OUTPUT_ATTR,
+        JSON.stringify({ status: "completed", workflow: WORKFLOW_NAME, thread_id: threadId })
+      );
+      return result;
+    } catch (err) {
+      if (err instanceof Error) {
+        span.recordException(err);
+        span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+      } else {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+      }
+      throw err;
+    } finally {
+      span.end();
+    }
+  });
+}
+
+function getTelemetryMetadata(threadId: string, agent: string) {
+  return {
+    customer_identifier: CUSTOMER_IDENTIFIER,
+    thread_identifier: threadId,
+    session_identifier: threadId,
+    trace_group_identifier: TRACE_GROUP_IDENTIFIER,
+    customer_params: JSON.stringify({
+      customer_identifier: CUSTOMER_IDENTIFIER,
+      name: "Rho Banking Demo",
+    }),
+    workflow: WORKFLOW_NAME,
+    agent,
+  };
 }
 
 // ============================================================================
@@ -106,35 +221,42 @@ Parameter schemas:
 // ============================================================================
 
 export async function POST(req: Request) {
-  const { message } = await req.json();
+  const { message, promptId } = await req.json();
+  const userMessage = typeof message === "string" ? message.trim() : "";
   const steps: Array<{ agent: string; action: string; output: string; toolName?: string }> = [];
 
-  const apiKey =
-    req.headers.get("x-respan-api-key")?.trim() || process.env.RESPAN_API_KEY;
+  if (!userMessage) {
+    return Response.json({ error: "Message is required.", steps }, { status: 400 });
+  }
+
+  const apiKey = getRespanApiKey(req);
 
   if (!apiKey) {
-    return Response.json(
-      { error: "API key is required. Set RESPAN_API_KEY or pass via header." },
-      { status: 400 }
-    );
+    return missingUserRespanApiKeyResponse();
   }
 
   const provider = createOpenAI({
     apiKey,
-    baseURL: `${process.env.RESPAN_BASE_URL || "https://api.respan.ai"}/api`,
+    baseURL: getRespanGatewayBaseUrl(),
   });
 
   const threadId = `banking_thread_${Date.now()}`;
 
   try {
-    return await propagateAttributes(
+    const result = await propagateAttributes(
       {
-        customer_identifier: "banking_demo_user",
+        customer_identifier: CUSTOMER_IDENTIFIER,
         thread_identifier: threadId,
-        trace_group_identifier: "banking_chatbot_workflow",
+        session_identifier: threadId,
+        trace_group_identifier: TRACE_GROUP_IDENTIFIER,
+        metadata: {
+          workflow: WORKFLOW_NAME,
+          trace_group_identifier: TRACE_GROUP_IDENTIFIER,
+          thread_id: threadId,
+        },
       },
       () =>
-        withWorkflow({ name: "banking_chatbot" }, async () => {
+        withBankingWorkflowRoot({ threadId, message: userMessage }, async () => {
           // ====================================================================
           // STEP 1: Tool Selection
           // ====================================================================
@@ -144,13 +266,12 @@ export async function POST(req: Request) {
               generateText({
                 model: provider("gpt-4o-mini"),
                 system: TOOL_SELECTION_SYSTEM_PROMPT,
-                prompt: `User message: "${message}"\n\nAnalyze this message and determine which banking tool(s) to use. Return a JSON response.`,
+                prompt: `User message: "${userMessage}"\n\nAnalyze this message and determine which banking tool(s) to use. Return a JSON response.`,
                 experimental_telemetry: {
                   isEnabled: true,
+                  functionId: "banking-tool-selection",
                   metadata: {
-                    customer_identifier: "banking_demo_user",
-                    thread_identifier: threadId,
-                    agent: "Tool Selection Agent",
+                    ...getTelemetryMetadata(threadId, "Tool Selection Agent"),
                   },
                 },
               })
@@ -201,13 +322,12 @@ export async function POST(req: Request) {
               generateText({
                 model: provider("gpt-4o-mini"),
                 system: `You are a helpful internal banking assistant for Rho. Summarize the tool results in a clear, helpful way.`,
-                prompt: `User question: "${message}"\n\nTool used: ${selectedToolName || "none"}\nTool result: ${JSON.stringify(toolResult, null, 2)}\n\nProvide a helpful, professional response.`,
+                prompt: `User question: "${userMessage}"\n\nTool used: ${selectedToolName || "none"}\nTool result: ${JSON.stringify(toolResult, null, 2)}\n\nProvide a helpful, professional response.`,
                 experimental_telemetry: {
                   isEnabled: true,
+                  functionId: "banking-response-generation",
                   metadata: {
-                    customer_identifier: "banking_demo_user",
-                    thread_identifier: threadId,
-                    agent: "Response Generator",
+                    ...getTelemetryMetadata(threadId, "Response Generator"),
                   },
                 },
               })
@@ -215,17 +335,26 @@ export async function POST(req: Request) {
 
           steps.push({ agent: "Response Generator", action: "Generating final response...", output: finalResult.text });
 
-          return Response.json({
+          return {
             response: finalResult.text,
             steps,
             toolUsed: isValidTool ? selectedToolName : "none",
             toolResult,
-            metadata: { workflow: "banking-chatbot", traceGroup: "banking_chatbot_workflow" },
-          });
+            metadata: {
+              workflow: WORKFLOW_NAME,
+              promptId: typeof promptId === "string" && promptId.trim() ? promptId.trim() : null,
+              traceGroup: TRACE_GROUP_IDENTIFIER,
+              threadId,
+            },
+          };
         })
     );
+
+    return Response.json(result);
   } catch (error) {
     console.error("Banking chatbot error:", error);
     return Response.json({ error: error instanceof Error ? error.message : "Unknown error", steps }, { status: 500 });
+  } finally {
+    await flushTracingWithoutShutdown();
   }
 }

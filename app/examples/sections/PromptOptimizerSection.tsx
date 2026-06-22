@@ -190,12 +190,14 @@ function RadarChart({
 // ---------------------------------------------------------------------------
 
 function FetchPromptResult({ result }: { result: any }) {
+  const version = result.current_version ?? result.version ?? result.deployed_version;
+
   return (
     <Card className="p-3 text-xs border-0 bg-transparent space-y-2">
       <div className="flex items-center justify-between">
         <span className="font-bold">Prompt: {result.name}</span>
         <span className="text-gray-500 font-mono text-[10px]">
-          v{result.deployed_version}
+          v{version} {result.is_deployed ? "deployed" : "draft"}
         </span>
       </div>
       {result.variables?.length > 0 && (
@@ -332,13 +334,17 @@ function TestCasesResult({ result }: { result: any }) {
 function ExperimentResult({ result }: { result: any }) {
   const scores = result.scores ?? {};
   const builtIn = result.built_in_metrics ?? {};
+  const evaluatorNames = result.evaluator_names ?? {};
+  const metricLabel = (slug: string) =>
+    evaluatorNames[slug] ??
+    slug
+      .replace(/-eval$/, "")
+      .replace(/^optimizer-\s*/i, "")
+      .replace(/-/g, " ");
 
   const radarMetrics: RadarMetric[] = [
     ...Object.entries(scores).map(([slug, val]) => ({
-      label: slug
-        .replace(/-eval$/, "")
-        .replace(/^optimizer-\s*/i, "")
-        .replace(/-/g, " "),
+      label: metricLabel(slug),
       value: val as number,
       maxValue: 10,
     })),
@@ -378,7 +384,7 @@ function ExperimentResult({ result }: { result: any }) {
         {Object.entries(scores).map(([slug, val]) => (
           <div key={slug} className="border border-gray-200 bg-white p-2">
             <div className="text-[10px] text-gray-500 truncate">
-              {slug.replace(/-eval$/, "").replace(/^optimizer-\s*/i, "")}
+              {metricLabel(slug)}
             </div>
             <div className={`font-mono font-bold ${scoreColor(val as number)}`}>
               {(val as number).toFixed(1)}/10
@@ -638,8 +644,7 @@ function ToolLoadingCard({ toolName }: { toolName: string }) {
     create_prompt: "Creating prompt...",
     generate_test_cases: "Generating test cases (this may take a moment)...",
     create_evaluators: "Creating evaluators...",
-    run_experiment:
-      "Running experiment (1-3 minutes)...",
+    run_experiment: "Running baseline evaluation...",
     improve_prompt: "Analyzing and improving prompt...",
     get_optimization_summary: "Computing summary...",
   };

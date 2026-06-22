@@ -10,6 +10,97 @@ import {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+type PromptMessage = { role: string; content: string };
+
+function contentToText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((part) => contentToText(part)).join("");
+  }
+  if (content && typeof content === "object") {
+    const record = content as Record<string, unknown>;
+    if (typeof record.text === "string") return record.text;
+    if (typeof record.content === "string") return record.content;
+    if (Array.isArray(record.content)) return contentToText(record.content);
+  }
+  return String(content ?? "");
+}
+
+function normalizeMessages(messages: unknown): PromptMessage[] {
+  if (!Array.isArray(messages)) return [];
+
+  return messages.map((message) => {
+    const record = message as Record<string, unknown>;
+    return {
+      role: String(record.role ?? "user"),
+      content: contentToText(record.content),
+    };
+  });
+}
+
+function extractVariables(messages: PromptMessage[]): string[] {
+  const allContent = messages.map((m) => m.content).join(" ");
+  const variableMatches = allContent.match(/\{\{([\w.-]+)\}\}/g) ?? [];
+  return [
+    ...new Set(variableMatches.map((m) => m.replace(/\{\{|\}\}/g, ""))),
+  ];
+}
+
+function promptVersionsFromResponse(response: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(response)) return response as Array<Record<string, unknown>>;
+  const results = (response as { results?: unknown })?.results;
+  return Array.isArray(results) ? (results as Array<Record<string, unknown>>) : [];
+}
+
+async function getPromptVersions(
+  apiKey: string,
+  promptId: string,
+): Promise<Array<Record<string, unknown>>> {
+  const versionsRes = await callRespan(
+    apiKey,
+    "GET",
+    "/api/prompts/" + promptId + "/versions/",
+  );
+  return promptVersionsFromResponse(versionsRes);
+}
+
+function getVersionNumber(version: Record<string, unknown>): number {
+  return Number(version.version ?? version.version_number ?? 1);
+}
+
+function getPreferredPromptVersion(
+  promptData: Record<string, unknown>,
+  versions: Array<Record<string, unknown>>,
+): Record<string, unknown> | undefined {
+  return (
+    versions.find((v) => Boolean(v.is_deployed || v.is_active)) ??
+    ((promptData.current_version && typeof promptData.current_version === "object")
+      ? (promptData.current_version as Record<string, unknown>)
+      : undefined) ??
+    versions[0]
+  );
+}
+
+async function ensurePromptVersionDeployed(
+  apiKey: string,
+  promptId: string,
+): Promise<number> {
+  const promptData = (await callRespan(
+    apiKey,
+    "GET",
+    "/api/prompts/" + promptId + "/",
+  )) as Record<string, unknown>;
+  const versions = await getPromptVersions(apiKey, promptId);
+  const target = getPreferredPromptVersion(promptData, versions);
+
+  if (!target) throw new Error("No version found for this prompt");
+
+  const versionNum = getVersionNumber(target);
+  const messages = normalizeMessages(target.messages);
+  const model = String(target.model ?? "gpt-4o-mini");
+  return deployVersion(apiKey, promptId, versionNum, messages, model);
+}
+
 // ---------------------------------------------------------------------------
 // Helper: extract output text from various response shapes
 // ---------------------------------------------------------------------------
@@ -28,6 +119,154 @@ function extractOutputText(output: unknown): string {
   return String(output ?? "");
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function renderTemplate(template: string, input: Record<string, unknown>): string {
+  return template.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_match, key: string) => {
+    const value = input[key];
+    if (value === undefined || value === null) return "";
+    return typeof value === "string" ? value : JSON.stringify(value);
+  });
+}
+
+function inputToUserText(input: Record<string, unknown>): string {
+  const entries = Object.entries(input);
+  if (entries.length === 1) return String(entries[0][1] ?? "");
+  return JSON.stringify(input);
+}
+
+function renderPromptMessages(
+  messages: PromptMessage[],
+  input: Record<string, unknown>,
+): PromptMessage[] {
+  let hasUserContent = false;
+  const rendered = messages.map((message) => {
+    const content = renderTemplate(message.content, input).trim();
+    if (message.role !== "system" && content) hasUserContent = true;
+    return { ...message, content };
+  });
+
+  if (!hasUserContent) {
+    const firstUser = rendered.find((message) => message.role !== "system");
+    if (firstUser) {
+      firstUser.content = inputToUserText(input);
+    } else {
+      rendered.push({ role: "user", content: inputToUserText(input) });
+    }
+  }
+
+  return rendered.filter((message) => message.role === "system" || message.content.trim());
+}
+
+function normalizeGatewayModel(model: unknown): string {
+  const raw = String(model ?? "").trim();
+  if (!raw || raw === "None" || raw === "unknown-model") return "gpt-4o-mini";
+  return raw;
+}
+
+function extractUsage(raw: unknown): {
+  cost: number;
+  latency: number;
+  promptTokens: number;
+  completionTokens: number;
+} {
+  const record = asRecord(raw);
+  const usage = asRecord(record.usage);
+  const promptTokens = Number(
+    usage.prompt_tokens ?? usage.promptTokens ?? record.prompt_tokens ?? 0,
+  ) || 0;
+  const completionTokens = Number(
+    usage.completion_tokens ?? usage.completionTokens ?? record.completion_tokens ?? 0,
+  ) || 0;
+  return {
+    cost: Number(record.cost ?? usage.cost ?? 0) || 0,
+    latency: Number(record.latency ?? 0) || 0,
+    promptTokens,
+    completionTokens,
+  };
+}
+
+function extractScore(text: string): number {
+  try {
+    const parsed = JSON.parse(extractJSON(text)) as Record<string, unknown>;
+    const raw = parsed.score ?? parsed.value ?? parsed.numerical_value ?? parsed.primary_score;
+    return Math.min(10, Math.max(0, Number(raw) || 0));
+  } catch {
+    const match = text.match(/(?:score|rating)?\s*:?\s*(\d+(?:\.\d+)?)\s*(?:\/\s*10)?/i);
+    return Math.min(10, Math.max(0, Number(match?.[1]) || 0));
+  }
+}
+
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
+  );
+  return results;
+}
+
+async function getDatasetLogs(
+  apiKey: string,
+  datasetId: string,
+): Promise<Array<Record<string, unknown>>> {
+  const logsRes = (await callRespan(
+    apiKey,
+    "POST",
+    "/api/datasets/" + datasetId + "/logs/list/",
+    { page: 1, page_size: 100 },
+  )) as { results?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>;
+
+  return Array.isArray(logsRes) ? logsRes : logsRes.results ?? [];
+}
+
+async function getEvaluatorDetails(
+  apiKey: string,
+  evaluatorSlugs: string[],
+): Promise<Array<{ slug: string; name: string; definition: string; rubric: string }>> {
+  return Promise.all(
+    evaluatorSlugs.map(async (slug) => {
+      try {
+        const data = (await callRespan(
+          apiKey,
+          "GET",
+          "/api/evaluators/" + slug + "/",
+        )) as Record<string, unknown>;
+        const configurations = asRecord(data.configurations);
+        return {
+          slug,
+          name: String(data.name ?? slug).replace(/^Optimizer\s*-\s*/i, ""),
+          definition: String(configurations.evaluator_definition ?? data.description ?? slug),
+          rubric: String(configurations.scoring_rubric ?? "0=poor, 5=acceptable, 10=excellent"),
+        };
+      } catch {
+        return {
+          slug,
+          name: slug,
+          definition: "Evaluate whether the output is high quality for this metric.",
+          rubric: "0=poor, 5=acceptable, 10=excellent",
+        };
+      }
+    }),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Tools factory — closures over API key
 // ---------------------------------------------------------------------------
@@ -40,37 +279,40 @@ async function deployVersion(
   apiKey: string,
   promptId: string,
   versionNum: number,
-  messages: Array<{ role: string; content: string }>,
+  messages: PromptMessage[],
   model: string,
 ): Promise<number> {
-  // Check if the version is already readonly
-  const versionsRes = (await callRespan(
-    apiKey,
-    "GET",
-    `/api/prompts/${promptId}/versions/`,
-  )) as any;
-  const versions = Array.isArray(versionsRes)
-    ? versionsRes
-    : (versionsRes?.results ?? []);
-  const target = versions.find((v: any) => Number(v.version) === versionNum);
+  const versions = await getPromptVersions(apiKey, promptId);
+  const target = versions.find((v) => getVersionNumber(v) === versionNum);
 
-  if (target?.is_deployed) return versionNum; // already deployed
+  if (target?.is_deployed || target?.is_active) return versionNum;
 
   if (target && target.readonly !== true) {
-    // Draft version — create a new version to lock this one as readonly
-    await callRespan(apiKey, "POST", `/api/prompts/${promptId}/versions/`, {
+    await callRespan(apiKey, "POST", "/api/prompts/" + promptId + "/versions/", {
       messages,
       model,
     });
   }
 
-  // Now the target version is readonly — deploy it
-  await callRespan(
-    apiKey,
-    "PATCH",
-    `/api/prompts/${promptId}/versions/${versionNum}/`,
-    { deploy: true },
-  );
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await callRespan(
+        apiKey,
+        "PATCH",
+        "/api/prompts/" + promptId + "/versions/" + versionNum + "/",
+        { deploy: true },
+      );
+      return versionNum;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (attempt < 2 && message.toLowerCase().includes("draft")) {
+        await sleep(1000);
+        continue;
+      }
+      throw error;
+    }
+  }
+
   return versionNum;
 }
 
@@ -81,7 +323,7 @@ export function tools(apiKey: string) {
     // -------------------------------------------------------------------
     fetch_prompt: tool({
       description:
-        "Fetch an existing prompt from Respan, including its deployed version, messages, and variables.",
+        "Fetch an existing prompt from Respan, including its current version, messages, and variables.",
       parameters: z.object({
         prompt_id: z.string().describe("The prompt ID to fetch"),
       }),
@@ -89,52 +331,29 @@ export function tools(apiKey: string) {
         const promptData = (await callRespan(
           apiKey,
           "GET",
-          `/api/prompts/${prompt_id}/`,
+          "/api/prompts/" + prompt_id + "/",
         )) as Record<string, unknown>;
 
-        const versionsRes = (await callRespan(
-          apiKey,
-          "GET",
-          `/api/prompts/${prompt_id}/versions/`,
-        )) as any;
-        const versions = Array.isArray(versionsRes)
-          ? versionsRes
-          : (versionsRes?.results ?? []);
-        const targetVersion =
-          versions.find((v: any) => v.is_deployed || v.is_active) ??
-          versions[0];
+        const versions = await getPromptVersions(apiKey, prompt_id);
+        const targetVersion = getPreferredPromptVersion(promptData, versions);
         if (!targetVersion)
           throw new Error("No version found for this prompt");
 
-        const messages = (targetVersion.messages ?? []) as Array<{
-          role: string;
-          content: string;
-        }>;
-        let deployedVersion = Number(targetVersion.version ?? 1);
-        const model = (targetVersion as any).model ?? "gpt-4o-mini";
-
-        // Ensure the version is deployed (required for experiments)
-        deployedVersion = await deployVersion(
-          apiKey,
-          prompt_id,
-          deployedVersion,
-          messages,
-          model,
-        );
-
-        const allContent = messages.map((m) => m.content).join(" ");
-        const variableMatches = allContent.match(/\{\{(\w+)\}\}/g) ?? [];
-        const variables = [
-          ...new Set(variableMatches.map((m) => m.replace(/\{\{|\}\}/g, ""))),
-        ];
+        const messages = normalizeMessages(targetVersion.messages);
+        const version = getVersionNumber(targetVersion);
+        const variables = extractVariables(messages);
 
         return {
           prompt_id,
           name: String(promptData.name ?? prompt_id),
           messages,
           variables,
-          deployed_version: deployedVersion,
-          version_count: versions.length,
+          current_version: version,
+          deployed_version: Boolean(targetVersion.is_deployed || targetVersion.is_active) ? version : null,
+          version,
+          is_deployed: Boolean(targetVersion.is_deployed || targetVersion.is_active),
+          version_count: versions.length || Number(promptData.version_count ?? 1),
+          model: String(targetVersion.model ?? "gpt-4o-mini"),
         };
       },
     }),
@@ -440,7 +659,7 @@ Return ONLY a JSON array, no other text.`;
     // -------------------------------------------------------------------
     run_experiment: tool({
       description:
-        "Run an experiment: evaluate the currently deployed prompt version against all test cases and evaluators. Returns per-metric scores and built-in metrics (cost, latency). Takes 1-3 minutes.",
+        "Run a baseline evaluation through the Respan gateway: execute the prompt against test cases and score outputs with the selected evaluators. Returns per-metric scores and built-in metrics.",
       parameters: z.object({
         prompt_id: z.string().describe("The prompt ID to evaluate"),
         dataset_id: z.string().describe("The dataset ID with test cases"),
@@ -453,161 +672,131 @@ Return ONLY a JSON array, no other text.`;
           .describe("Label for this experiment run, e.g. 'Baseline' or 'V2'"),
       }),
       execute: async ({ prompt_id, dataset_id, evaluator_slugs, label }) => {
-        // Ensure a version is deployed before running the experiment.
-        // The deployVersion helper is already called by fetch_prompt and
-        // improve_prompt, so this is a safety check.
-
-        // Create experiment with ALL evaluator slugs in one call
-        const expRes = (await callRespan(
+        const promptData = (await callRespan(
           apiKey,
-          "POST",
-          `/api/v2/experiments/`,
-          {
-            name: `Optimizer - ${label ?? "run"}`,
-            dataset_id,
-            workflow: [{ type: "prompt", config: { prompt_id } }],
-            evaluator_slugs,
-          },
+          "GET",
+          "/api/prompts/" + prompt_id + "/",
         )) as Record<string, unknown>;
+        const versions = await getPromptVersions(apiKey, prompt_id);
+        const promptVersion = getPreferredPromptVersion(promptData, versions);
+        if (!promptVersion) throw new Error("No version found for this prompt");
 
-        const experimentId = String(
-          expRes.id ?? expRes.experiment_id ?? expRes.unique_id ?? "",
-        );
-        if (!experimentId)
-          throw new Error(
-            `Failed to create experiment: ${JSON.stringify(expRes)}`,
-          );
-
-        // Poll for completion
-        const maxPollMs = 180_000;
-        const pollStart = Date.now();
-        let expData: Record<string, unknown> = {};
-        while (Date.now() - pollStart < maxPollMs) {
-          await sleep(5000);
-          expData = (await callRespan(
-            apiKey,
-            "GET",
-            `/api/v2/experiments/${experimentId}/`,
-          )) as Record<string, unknown>;
-          const st = String(expData.status ?? "");
-          if (st === "completed" || st === "done") break;
-          if (st === "failed" || st === "error")
-            throw new Error(`Experiment failed: ${JSON.stringify(expData)}`);
+        const promptMessages = normalizeMessages(promptVersion.messages);
+        const model = normalizeGatewayModel(promptVersion.model);
+        const datasetLogs = await getDatasetLogs(apiKey, dataset_id);
+        if (datasetLogs.length === 0) {
+          throw new Error("The selected dataset has no logs. Generate test cases before running the baseline evaluation.");
         }
 
-        const finalStatus = String(expData.status ?? "");
-        if (finalStatus !== "completed" && finalStatus !== "done")
-          throw new Error(`Experiment timed out (status: ${finalStatus})`);
-
-        // Wait for logs
-        let logs: Array<Record<string, unknown>> = [];
-        for (let logPoll = 0; logPoll < 20; logPoll++) {
-          await sleep(5000);
-          const logsList = (await callRespan(
-            apiKey,
-            "GET",
-            `/api/v2/experiments/${experimentId}/logs/list/`,
-          )) as { results?: Array<Record<string, unknown>> };
-          logs = logsList.results ?? [];
-          if (logs.length > 0) break;
+        const evaluators = await getEvaluatorDetails(apiKey, evaluator_slugs);
+        if (evaluators.length === 0) {
+          throw new Error("No evaluators were provided for the baseline evaluation.");
         }
 
-        // Aggregate scores per evaluator + built-in metrics
+        const generations = await mapLimit(datasetLogs, 4, async (logEntry) => {
+          const input = asRecord((logEntry as any).input ?? (logEntry as any).extracted_fields?.input);
+          const expectedOutput = extractOutputText((logEntry as any).expected_output);
+          const messages = renderPromptMessages(promptMessages, input);
+          const startedAt = Date.now();
+          let generation;
+          try {
+            generation = await callGateway(apiKey, {
+              model,
+              messages,
+              temperature: Number(promptVersion.temperature ?? 0.7),
+              max_tokens: Number(promptVersion.max_tokens ?? 1024),
+            });
+          } catch (error) {
+            if (model === "gpt-4o-mini") throw error;
+            generation = await callGateway(apiKey, {
+              model: "gpt-4o-mini",
+              messages,
+              temperature: Number(promptVersion.temperature ?? 0.7),
+              max_tokens: Number(promptVersion.max_tokens ?? 1024),
+            });
+          }
+
+          const usage = extractUsage(generation.raw);
+          const latency = usage.latency || (Date.now() - startedAt) / 1000;
+          return {
+            input,
+            expectedOutput,
+            output: generation.content,
+            cost: usage.cost,
+            latency,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+          };
+        });
+
         const evaluatorScoreSums: Record<string, number> = {};
         const evaluatorScoreCounts: Record<string, number> = {};
-        let totalCost = 0;
-        let totalLatency = 0;
-        let totalTokens = 0;
-        let numLogs = 0;
         const perTestScores: Array<Record<string, number>> = [];
 
-        for (const logEntry of logs) {
-          const logId = String(
-            logEntry.id ?? logEntry.unique_id ?? logEntry.trace_id ?? "",
-          );
-          if (!logId) continue;
-
-          // Poll individual log for scores
-          let detail: Record<string, unknown> = {};
-          let logScores: Record<string, unknown> | null = null;
-          for (let attempt = 0; attempt < 15; attempt++) {
-            detail = (await callRespan(
-              apiKey,
-              "GET",
-              `/api/v2/experiments/${experimentId}/logs/${logId}/`,
-            )) as Record<string, unknown>;
-            const rawScores = detail.scores as
-              | Record<string, unknown>
-              | undefined;
-            if (rawScores && Object.keys(rawScores).length > 0) {
-              logScores = rawScores;
-              break;
-            }
-            if (attempt < 14) await sleep(3000);
-          }
-
-          // Extract per-evaluator scores
+        await mapLimit(generations, 3, async (generation, generationIndex) => {
           const testScores: Record<string, number> = {};
-          if (logScores) {
-            for (const [slug, evalData] of Object.entries(logScores)) {
-              const ed = evalData as Record<string, unknown>;
-              const sv =
-                ed?.score_value ?? ed?.numerical_value ?? ed?.value ?? 0;
-              const score = Math.min(
-                10,
-                Math.max(0, typeof sv === "number" ? sv : parseFloat(String(sv)) || 0),
-              );
-              testScores[slug] = score;
-              evaluatorScoreSums[slug] =
-                (evaluatorScoreSums[slug] ?? 0) + score;
-              evaluatorScoreCounts[slug] =
-                (evaluatorScoreCounts[slug] ?? 0) + 1;
-            }
-          }
+          await mapLimit(evaluators, 3, async (evaluator) => {
+            const evalPrompt = `You are scoring an LLM output for a prompt optimization experiment.
 
-          // Built-in metrics
-          const logCost =
-            typeof detail.cost === "number"
-              ? detail.cost
-              : parseFloat(String(detail.cost ?? "0")) || 0;
-          const logLatency =
-            typeof detail.latency === "number"
-              ? detail.latency
-              : parseFloat(String(detail.latency ?? "0")) || 0;
-          const promptTokens =
-            typeof detail.prompt_tokens === "number"
-              ? detail.prompt_tokens
-              : 0;
-          const completionTokens =
-            typeof detail.completion_tokens === "number"
-              ? detail.completion_tokens
-              : 0;
+Metric: ${evaluator.name}
+Definition and instructions:
+${evaluator.definition}
 
-          totalCost += logCost;
-          totalLatency += logLatency;
-          totalTokens += promptTokens + completionTokens;
-          numLogs++;
-          perTestScores.push(testScores);
-        }
+Rubric:
+${evaluator.rubric}
 
-        // Compute averages
+Input:
+${JSON.stringify(generation.input)}
+
+Output:
+${generation.output}
+
+Expected output:
+${generation.expectedOutput}
+
+Return only JSON: {"score": number, "reasoning": "brief reason"}. The score must be from 0 to 10.`;
+
+            const evalResult = await callGateway(apiKey, {
+              model: "gpt-4o-mini",
+              messages: [{ role: "user", content: evalPrompt }],
+              temperature: 0,
+              max_tokens: 512,
+            });
+            const score = extractScore(evalResult.content);
+            testScores[evaluator.slug] = score;
+            evaluatorScoreSums[evaluator.slug] =
+              (evaluatorScoreSums[evaluator.slug] ?? 0) + score;
+            evaluatorScoreCounts[evaluator.slug] =
+              (evaluatorScoreCounts[evaluator.slug] ?? 0) + 1;
+          });
+          perTestScores[generationIndex] = testScores;
+        });
+
         const avgScores: Record<string, number> = {};
         for (const slug of Object.keys(evaluatorScoreSums)) {
-          avgScores[slug] =
-            evaluatorScoreSums[slug] / (evaluatorScoreCounts[slug] || 1);
+          avgScores[slug] = evaluatorScoreSums[slug] / (evaluatorScoreCounts[slug] || 1);
         }
 
-        const avgCost = numLogs > 0 ? totalCost / numLogs : 0;
-        const avgLatency = numLogs > 0 ? totalLatency / numLogs : 0;
-        const avgTokens = numLogs > 0 ? totalTokens / numLogs : 0;
+        const totalCost = generations.reduce((sum, item) => sum + item.cost, 0);
+        const totalLatency = generations.reduce((sum, item) => sum + item.latency, 0);
+        const totalTokens = generations.reduce(
+          (sum, item) => sum + item.promptTokens + item.completionTokens,
+          0,
+        );
+        const numLogs = generations.length;
 
         return {
-          experiment_id: experimentId,
+          experiment_id: "gateway-baseline-" + Date.now(),
+          label: label ?? "Baseline",
+          mode: "gateway_direct",
+          prompt_id,
+          dataset_id,
+          evaluator_names: Object.fromEntries(evaluators.map((e) => [e.slug, e.name])),
           scores: avgScores,
           built_in_metrics: {
-            avg_cost: avgCost,
-            avg_latency: avgLatency,
-            avg_tokens: avgTokens,
+            avg_cost: numLogs > 0 ? totalCost / numLogs : 0,
+            avg_latency: numLogs > 0 ? totalLatency / numLogs : 0,
+            avg_tokens: numLogs > 0 ? totalTokens / numLogs : 0,
           },
           per_test_scores: perTestScores,
           num_logs: numLogs,

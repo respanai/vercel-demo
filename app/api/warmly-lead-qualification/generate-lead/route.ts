@@ -1,22 +1,19 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { withWorkflow, withTask, propagateAttributes } from "@respan/respan";
+import { getRespanGatewayBaseUrl } from "@/lib/respan";
+import { getRespanApiKey, missingUserRespanApiKeyResponse } from "@/lib/respan";
 
 export async function POST(req: Request) {
-  const apiKey =
-    req.headers.get("x-respan-api-key")?.trim() ||
-    process.env.RESPAN_API_KEY;
+  const apiKey = getRespanApiKey(req);
 
   if (!apiKey) {
-    return Response.json(
-      { error: "API key is required." },
-      { status: 400 }
-    );
+    return missingUserRespanApiKeyResponse();
   }
 
   const provider = createOpenAI({
     apiKey,
-    baseURL: `${process.env.RESPAN_BASE_URL || "https://api.respan.ai"}/api`,
+    baseURL: getRespanGatewayBaseUrl(),
   });
 
   const threadId = `warmly_generate_${Date.now()}`;

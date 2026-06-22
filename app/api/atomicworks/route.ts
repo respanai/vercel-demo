@@ -20,9 +20,10 @@
 
 import { createOpenAI } from "@ai-sdk/openai";
 import { embed, generateText } from "ai";
-import { trace } from "@opentelemetry/api";
-import { withWorkflow, withAgent, withTool, propagateAttributes } from "@respan/respan";
-import { forceFlush } from "@respan/tracing";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
+import { withAgent, withTool, propagateAttributes } from "@respan/respan";
+import { getClient as getTracingSdk } from "@respan/tracing/dist/utils/tracing.js";
+import { getRespanApiKey, missingUserRespanApiKeyResponse } from "@/lib/respan";
 import {
   GATEWAY_BASE,
   getScenario,
@@ -92,6 +93,39 @@ function shortId() {
   return Math.random().toString(36).slice(2, 7).toUpperCase();
 }
 
+async function flushTracingWithoutShutdown() {
+  try {
+    const sdk = getTracingSdk() as
+      | {
+          _tracerProvider?: {
+            forceFlush?: () => Promise<void>;
+            activeSpanProcessor?: { forceFlush?: () => Promise<void> };
+          };
+        }
+      | undefined;
+
+    if (typeof sdk?._tracerProvider?.forceFlush === "function") {
+      await sdk._tracerProvider.forceFlush();
+      return;
+    }
+
+    if (typeof sdk?._tracerProvider?.activeSpanProcessor?.forceFlush === "function") {
+      await sdk._tracerProvider.activeSpanProcessor.forceFlush();
+      return;
+    }
+
+    const provider = trace.getTracerProvider() as {
+      forceFlush?: () => Promise<void>;
+      _delegate?: { forceFlush?: () => Promise<void> };
+      getDelegate?: () => { forceFlush?: () => Promise<void> };
+    };
+    const delegate = provider?._delegate ?? provider?.getDelegate?.() ?? provider;
+    await delegate?.forceFlush?.();
+  } catch {
+    // Best effort: request completion should not fail because telemetry flushing did.
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Managed prompts (Respan prompt management) with inline fallback
 // ---------------------------------------------------------------------------
@@ -135,6 +169,19 @@ const TRACER = trace.getTracer("atomicworks");
 const LOG_TYPE_ATTR = "respan.entity.log_type";
 const ENTITY_INPUT_ATTR = "traceloop.entity.input";
 const ENTITY_OUTPUT_ATTR = "traceloop.entity.output";
+const SPAN_KIND_ATTR = "traceloop.span.kind";
+const WORKFLOW_NAME_ATTR = "traceloop.workflow.name";
+const ENTITY_NAME_ATTR = "traceloop.entity.name";
+const ENTITY_PATH_ATTR = "traceloop.entity.path";
+const CUSTOMER_ID_ATTR = "respan.customer_params.customer_identifier";
+const CUSTOMER_NAME_ATTR = "respan.customer_params.name";
+const THREAD_ID_ATTR = "respan.threads.thread_identifier";
+const SESSION_ID_ATTR = "respan.sessions.session_identifier";
+const TRACE_GROUP_ATTR = "respan.trace.trace_group_identifier";
+const METADATA_WORKFLOW_ATTR = "respan.metadata.workflow";
+const METADATA_TENANT_ATTR = "respan.metadata.tenant";
+const METADATA_SCENARIO_ATTR = "respan.metadata.scenario";
+const METADATA_TICKET_ATTR = "respan.metadata.ticket_id";
 
 /** Emit a typed "handoff" span recording one agent passing control to the next. */
 async function emitHandoff(from: ServiceKey, to: ServiceKey, ticketId: string): Promise<void> {
@@ -146,6 +193,64 @@ async function emitHandoff(from: ServiceKey, to: ServiceKey, ticketId: string): 
     span.setAttribute(ENTITY_OUTPUT_ATTR, JSON.stringify({ to_agent: `${to}-service` }));
     span.setAttribute("ticket_id", ticketId);
     span.end();
+  });
+}
+
+async function withAtomicworksWorkflowRoot<T>(
+  params: {
+    workflowName: string;
+    traceGroupIdentifier: string;
+    ticketId: string;
+    tenant: Tenant;
+    scenario: Scenario;
+  },
+  fn: () => Promise<T>,
+): Promise<T> {
+  const { workflowName, traceGroupIdentifier, ticketId, tenant, scenario } = params;
+
+  return TRACER.startActiveSpan(`${workflowName}.workflow`, async (span) => {
+    span.setAttribute(LOG_TYPE_ATTR, "workflow");
+    span.setAttribute(SPAN_KIND_ATTR, "workflow");
+    span.setAttribute(WORKFLOW_NAME_ATTR, workflowName);
+    span.setAttribute(ENTITY_NAME_ATTR, workflowName);
+    span.setAttribute(ENTITY_PATH_ATTR, "");
+    span.setAttribute(CUSTOMER_ID_ATTR, tenant.customerIdentifier);
+    span.setAttribute(CUSTOMER_NAME_ATTR, tenant.displayName);
+    span.setAttribute(THREAD_ID_ATTR, ticketId);
+    span.setAttribute(SESSION_ID_ATTR, ticketId);
+    span.setAttribute(TRACE_GROUP_ATTR, traceGroupIdentifier);
+    span.setAttribute(METADATA_WORKFLOW_ATTR, workflowName);
+    span.setAttribute(METADATA_TENANT_ATTR, tenant.displayName);
+    span.setAttribute(METADATA_SCENARIO_ATTR, scenario.id);
+    span.setAttribute(METADATA_TICKET_ATTR, ticketId);
+    span.setAttribute(
+      ENTITY_INPUT_ATTR,
+      JSON.stringify({
+        ticket_id: ticketId,
+        tenant: tenant.displayName,
+        scenario: scenario.id,
+        request: scenario.request,
+      }),
+    );
+
+    try {
+      const result = await fn();
+      span.setAttribute(
+        ENTITY_OUTPUT_ATTR,
+        JSON.stringify({ ticket_id: ticketId, status: "completed", workflow: workflowName }),
+      );
+      return result;
+    } catch (err) {
+      if (err instanceof Error) {
+        span.recordException(err);
+        span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+      } else {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+      }
+      throw err;
+    } finally {
+      span.end();
+    }
   });
 }
 
@@ -185,9 +290,9 @@ async function fetchRenderedPrompt(
 
 export async function POST(req: Request) {
   const { tenantId, scenarioId } = (await req.json()) as RequestBody;
-  const apiKey = req.headers.get("x-respan-api-key")?.trim() || process.env.RESPAN_API_KEY;
+  const apiKey = getRespanApiKey(req);
   if (!apiKey) {
-    return Response.json({ error: "Respan API key required (header x-respan-api-key or env RESPAN_API_KEY)." }, { status: 400 });
+    return missingUserRespanApiKeyResponse();
   }
   const tenant = getTenant(tenantId);
   const scenario = getScenario(scenarioId);
@@ -214,23 +319,37 @@ export async function POST(req: Request) {
       // filterable workflows (access-recovery vs incident-response) rather than one
       // generic "ticket.resolve" for everything.
       const workflowName = scenario.route === "identity" ? "access-recovery" : "incident-response";
+      const traceGroupIdentifier = `atomicworks-${workflowName}`;
 
-      emit({ type: "ticket_start", ticketId, tenantId: tenant.id, scenario: scenario.label, workflow: workflowName });
+      emit({
+        type: "ticket_start",
+        ticketId,
+        tenantId: tenant.id,
+        scenario: scenario.label,
+        workflow: workflowName,
+        traceGroupIdentifier,
+      });
 
       try {
         await propagateAttributes(
           {
             customer_identifier: tenant.customerIdentifier,
             thread_identifier: ticketId,
+            session_identifier: ticketId,
+            trace_group_identifier: traceGroupIdentifier,
             metadata: {
               workflow: workflowName,
+              trace_group_identifier: traceGroupIdentifier,
               tenant: tenant.displayName,
               scenario: scenario.id,
+              ticket_id: ticketId,
             },
           },
           async () => {
-            await withWorkflow({ name: workflowName }, async () => {
-              let triageNote = "";
+            await withAtomicworksWorkflowRoot(
+              { workflowName, traceGroupIdentifier, ticketId, tenant, scenario },
+              async () => {
+                let triageNote = "";
 
               for (let i = 0; i < plan.length; i++) {
                 const key = plan[i];
@@ -279,6 +398,10 @@ export async function POST(req: Request) {
                         isEnabled: true,
                         functionId: `${key}-service`,
                         metadata: {
+                          customer_identifier: tenant.customerIdentifier,
+                          thread_identifier: ticketId,
+                          session_identifier: ticketId,
+                          trace_group_identifier: traceGroupIdentifier,
                           customer_params: JSON.stringify({
                             customer_identifier: tenant.customerIdentifier,
                             name: tenant.displayName,
@@ -307,6 +430,10 @@ export async function POST(req: Request) {
                           isEnabled: true,
                           functionId: "knowledge-embed-query",
                           metadata: {
+                            customer_identifier: tenant.customerIdentifier,
+                            thread_identifier: ticketId,
+                            session_identifier: ticketId,
+                            trace_group_identifier: traceGroupIdentifier,
                             customer_params: JSON.stringify({
                               customer_identifier: tenant.customerIdentifier,
                               name: tenant.displayName,
@@ -351,7 +478,8 @@ export async function POST(req: Request) {
                   emit({ type: "handoff", from: key, to: next });
                 }
               }
-            });
+              },
+            );
           }
         );
 
@@ -359,15 +487,11 @@ export async function POST(req: Request) {
       } catch (err) {
         emit({ type: "error", message: err instanceof Error ? err.message : "Pipeline error" });
       } finally {
-        // Serverless (Vercel): force-flush the batched spans before the function
-        // suspends — otherwise the export races the batch timer and the trace is
-        // dropped. forceFlush() exports without tearing down the SDK (unlike
-        // respan.flush()/shutdown), so warm-instance reuse is unaffected.
-        try {
-          await forceFlush();
-        } catch {
-          /* best-effort */
-        }
+        // Serverless (Vercel): flush the batched spans before the function
+        // suspends. Do not call @respan/tracing forceFlush() here: in this SDK
+        // version it shuts down the shared NodeSDK, which drops the other tenant
+        // when the UI fires bank + health requests concurrently.
+        await flushTracingWithoutShutdown();
         controller.close();
       }
     },

@@ -14,12 +14,13 @@ export function ObserveUsersSection(props: { respanApiKey: string }) {
   const env = "prod";
 
   const [usersStepLoading, setUsersStepLoading] = useState<
-    "create-user" | "list" | "get" | "update" | null
+    "create-user" | "list" | "get" | "update" | "delete" | null
   >(null);
   const [createUserResult, setCreateUserResult] = useState<any>(null);
   const [usersListResult, setUsersListResult] = useState<any>(null);
   const [usersGetResult, setUsersGetResult] = useState<any>(null);
   const [usersUpdateResult, setUsersUpdateResult] = useState<any>(null);
+  const [usersDeleteResult, setUsersDeleteResult] = useState<any>(null);
 
   const users = {
     createUser: async () => {
@@ -77,6 +78,19 @@ export function ObserveUsersSection(props: { respanApiKey: string }) {
         setUsersStepLoading(null);
       }
     },
+    delete: async () => {
+      setUsersStepLoading("delete");
+      setUsersDeleteResult(null);
+      try {
+        const data = await postProxy("/api/respan/users/delete", respanApiKey, {
+          customer_identifier: demoCustomerIdentifier,
+          environment: env,
+        });
+        setUsersDeleteResult(data);
+      } finally {
+        setUsersStepLoading(null);
+      }
+    },
   };
 
   return (
@@ -107,7 +121,7 @@ export function ObserveUsersSection(props: { respanApiKey: string }) {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
         <Button
           className="w-full py-3"
           onClick={users.createUser}
@@ -138,6 +152,25 @@ export function ObserveUsersSection(props: { respanApiKey: string }) {
         </Button>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+        <Button
+          className="w-full py-3"
+          onClick={users.delete}
+          disabled={usersStepLoading !== null}
+        >
+          5) Delete user
+        </Button>
+        <Button className="w-full py-3" disabled>
+          —
+        </Button>
+        <Button className="w-full py-3" disabled>
+          —
+        </Button>
+        <Button className="w-full py-3" disabled>
+          —
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <JsonBlock
           title="Step 1 response (Create log → creates user)"
@@ -147,6 +180,7 @@ export function ObserveUsersSection(props: { respanApiKey: string }) {
         <JsonBlock title="Step 2 response (List users)" value={usersListResult} emptyText={'Click "2) List users"'} />
         <JsonBlock title="Step 3 response (Retrieve user)" value={usersGetResult} emptyText={'Click "3) Retrieve user"'} />
         <JsonBlock title="Step 4 response (Update user)" value={usersUpdateResult} emptyText={'Click "4) Update user"'} />
+        <JsonBlock title="Step 5 response (Delete user)" value={usersDeleteResult} emptyText={'Click "5) Delete user"'} />
       </div>
     </div>
   );

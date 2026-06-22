@@ -10,22 +10,41 @@ import { Label } from "@/components/ui/label";
 export function DevelopGatewaySection(props: { respanApiKey: string }) {
   const { respanApiKey } = props;
 
+  const demoCustomerIdentifier = "gateway_demo_user";
+
   const fixedPayload = {
     model: "gpt-4o-mini",
     messages: [{ role: "user", content: "Say 'Hello World'" }],
+    customer_identifier: demoCustomerIdentifier,
+    metadata: { source: "respan-demo", feature: "gateway" },
   };
 
   const [result, setResult] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<any>(null);
+  const [loading, setLoading] = useState<"create" | "delete" | null>(null);
 
   const run = async () => {
-    setLoading(true);
+    setLoading("create");
     setResult(null);
     try {
       const data = await postProxy("/api/respan/gateway/chat-completions", respanApiKey, fixedPayload);
       setResult(data);
     } finally {
-      setLoading(false);
+      setLoading(null);
+    }
+  };
+
+  const deleteDemoUser = async () => {
+    setLoading("delete");
+    setDeleteResult(null);
+    try {
+      const data = await postProxy("/api/respan/users/delete", respanApiKey, {
+        customer_identifier: demoCustomerIdentifier,
+        environment: "prod",
+      });
+      setDeleteResult(data);
+    } finally {
+      setLoading(null);
     }
   };
 
@@ -49,12 +68,12 @@ export function DevelopGatewaySection(props: { respanApiKey: string }) {
         <Button
           className="w-full py-3"
           onClick={run}
-          disabled={loading}
+          disabled={loading !== null}
         >
           1) Create chat completion
         </Button>
-        <Button className="w-full py-3" disabled>
-          —
+        <Button className="w-full py-3" onClick={deleteDemoUser} disabled={loading !== null}>
+          2) Delete demo user
         </Button>
         <Button className="w-full py-3" disabled>
           —
@@ -64,8 +83,9 @@ export function DevelopGatewaySection(props: { respanApiKey: string }) {
         </Button>
       </div>
 
-      <div className="mt-4">
-        <JsonBlock title="Response" value={result} emptyText={'Click "1) Create chat completion"'} />
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <JsonBlock title="Step 1 response" value={result} emptyText={'Click "1) Create chat completion"'} />
+        <JsonBlock title="Step 2 response" value={deleteResult} emptyText={'Click "2) Delete demo user"'} />
       </div>
     </div>
   );

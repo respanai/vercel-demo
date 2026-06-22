@@ -54,9 +54,26 @@ export function EvaluateDatasetsSection(props: { respanApiKey: string }) {
     end_time: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
   };
 
-  const evalCreatePayload = {
-    evaluator_slugs: ["char_count_eval"],
+  const demoEvaluatorTemplate = {
+    type: "llm",
+    score_value_type: "numerical",
+    configurations: {
+      evaluator_definition:
+        "Evaluate whether the output correctly answers the input.\n\nInput: {{input}}\nOutput: {{output}}\n\nReturn a score from 0 to 10.",
+      scoring_rubric: "0=incorrect or unrelated, 5=partially correct, 10=fully correct",
+      llm_engine: "gpt-4o-mini",
+      min_score: 0,
+      max_score: 10,
+      model_options: { temperature: 0 },
+    },
   };
+
+  function buildDemoEvaluatorPayload() {
+    return {
+      name: `Dataset Demo Correctness (${new Date().toISOString()})`,
+      ...demoEvaluatorTemplate,
+    };
+  }
 
   const [loading, setLoading] = useState<
     | "create-dataset"
@@ -70,12 +87,14 @@ export function EvaluateDatasetsSection(props: { respanApiKey: string }) {
     | "create-with-logs"
     | "eval-list"
     | "eval-create"
+    | "delete-evaluator"
     | null
   >(null);
 
   const [datasetId, setDatasetId] = useState<string | null>(null);
   const [datasetLogUniqueId, setDatasetLogUniqueId] = useState<string | null>(null);
   const [requestLogUniqueId, setRequestLogUniqueId] = useState<string | null>(null);
+  const [evaluatorSlug, setEvaluatorSlug] = useState<string | null>(null);
   const [evalReportId, setEvalReportId] = useState<string | null>(null);
 
   const [r1, setR1] = useState<any>(null);
@@ -89,6 +108,7 @@ export function EvaluateDatasetsSection(props: { respanApiKey: string }) {
   const [r9, setR9] = useState<any>(null);
   const [r10, setR10] = useState<any>(null);
   const [r11, setR11] = useState<any>(null);
+  const [r12, setR12] = useState<any>(null);
 
   const actions = {
     createDataset: async () => {
@@ -166,6 +186,9 @@ export function EvaluateDatasetsSection(props: { respanApiKey: string }) {
       try {
         const data = await postProxy("/api/respan/datasets/delete", respanApiKey, { dataset_id: datasetId });
         setR6(data);
+        setDatasetId(null);
+        setDatasetLogUniqueId(null);
+        setEvalReportId(null);
       } finally {
         setLoading(null);
       }
@@ -231,6 +254,10 @@ export function EvaluateDatasetsSection(props: { respanApiKey: string }) {
       try {
         const data = await postProxy("/api/respan/datasets/eval-reports/list", respanApiKey, { dataset_id: datasetId });
         setR10(data);
+        const first = (data as any)?.response?.results?.[0];
+        const reportId = pickId(first, ["task_id", "id", "eval_report_id", "run_id"]);
+        if (reportId) setEvalReportId(String(reportId));
+        // Existing eval runs may reference evaluators that this demo did not create, so cleanup only uses Step 11's evaluator.
       } finally {
         setLoading(null);
       }
@@ -240,13 +267,51 @@ export function EvaluateDatasetsSection(props: { respanApiKey: string }) {
       setLoading("eval-create");
       setR11(null);
       try {
-        const data = await postProxy("/api/respan/datasets/eval-reports/create", respanApiKey, {
-          dataset_id: datasetId,
-          ...evalCreatePayload,
+        const createdEvaluator = await postProxy(
+          "/api/respan/evaluators/create",
+          respanApiKey,
+          buildDemoEvaluatorPayload(),
+        );
+        const slug =
+          pickId((createdEvaluator as any)?.response, ["evaluator_slug", "slug", "id"]) ||
+          pickId((createdEvaluator as any), ["evaluator_slug", "slug", "id"]);
+
+        if (!slug || (createdEvaluator as any)?.status >= 400) {
+          setR11({
+            created_evaluator: createdEvaluator,
+            skipped_eval_report: "Evaluator creation did not return an evaluator_slug.",
+          });
+          return;
+        }
+
+        setEvaluatorSlug(slug);
+        const evalPayload = { dataset_id: datasetId, evaluator_slugs: [slug] };
+        const createdEvalReport = await postProxy(
+          "/api/respan/datasets/eval-reports/create",
+          respanApiKey,
+          evalPayload,
+        );
+        setR11({
+          created_evaluator: createdEvaluator,
+          created_eval_report: createdEvalReport,
+          eval_report_request: evalPayload,
         });
-        setR11(data);
-        const id = pickId((data as any)?.response, ["id"]);
+        const id = pickId((createdEvalReport as any)?.response, ["task_id", "id", "eval_report_id", "run_id"]);
         if (id) setEvalReportId(String(id));
+      } finally {
+        setLoading(null);
+      }
+    },
+    deleteEvaluator: async () => {
+      if (!evaluatorSlug) return;
+      setLoading("delete-evaluator");
+      setR12(null);
+      try {
+        const data = await postProxy("/api/respan/evaluators/delete", respanApiKey, {
+          evaluator_id: evaluatorSlug,
+        });
+        setR12(data);
+        setEvaluatorSlug(null);
       } finally {
         setLoading(null);
       }
@@ -282,7 +347,7 @@ export function EvaluateDatasetsSection(props: { respanApiKey: string }) {
             {JSON.stringify(createDatasetWithLogsBasePayload)}
           </Card>
           <Card className="p-3 text-xs font-mono md:col-span-2">
-            <span className="text-gray-400">run eval:</span> {JSON.stringify(evalCreatePayload)}
+            <span className="text-gray-400">step 11 evaluator:</span> {JSON.stringify(demoEvaluatorTemplate)}
           </Card>
         </div>
       </Card>
@@ -298,6 +363,9 @@ export function EvaluateDatasetsSection(props: { respanApiKey: string }) {
           </Card>
           <Card className="p-3 text-xs font-mono">
             <span className="text-gray-400">request_log_unique_id (for create-with-logs):</span> {requestLogUniqueId || "—"}
+          </Card>
+          <Card className="p-3 text-xs font-mono">
+            <span className="text-gray-400">evaluator_slug:</span> {evaluatorSlug || "—"}
           </Card>
           <Card className="p-3 text-xs font-mono">
             <span className="text-gray-400">eval_report_id:</span> {evalReportId || "—"}
@@ -325,45 +393,30 @@ export function EvaluateDatasetsSection(props: { respanApiKey: string }) {
         <Button className="w-full py-3" onClick={actions.patchDataset} disabled={loading !== null || !datasetId}>
           5) Update dataset (PATCH)
         </Button>
-        <Button className="w-full py-3" onClick={actions.deleteDataset} disabled={loading !== null || !datasetId}>
-          6) Delete dataset
-        </Button>
         <Button className="w-full py-3" onClick={actions.listDatasetLogs} disabled={loading !== null || !datasetId}>
-          7) List dataset logs (GET)
+          6) List dataset logs (GET)
         </Button>
         <Button className="w-full py-3" onClick={actions.listDatasetLogsWithFilters} disabled={loading !== null || !datasetId}>
-          8) List logs (filters)
+          7) List logs (filters)
         </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
         <Button className="w-full py-3" onClick={actions.createDatasetWithSpecifiedLogs} disabled={loading !== null}>
-          9) Create dataset w/ specified logs
-        </Button>
-        <Button className="w-full py-3" disabled>
-          —
-        </Button>
-        <Button className="w-full py-3" disabled>
-          —
-        </Button>
-        <Button className="w-full py-3" disabled>
-          —
+          8) Create dataset w/ specified logs
         </Button>
       </div>
 
       {/* 2 dataset eval APIs (fixed) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <Button className="w-full py-3" onClick={actions.listEvalRuns} disabled={loading !== null || !datasetId}>
-          10) List eval runs
+          9) List eval runs
         </Button>
         <Button className="w-full py-3" onClick={actions.runEvalOnDataset} disabled={loading !== null || !datasetId}>
-          11) Run eval on dataset
+          10) Create evaluator + run eval
         </Button>
-        <Button className="w-full py-3" disabled>
-          —
+        <Button className="w-full py-3" onClick={actions.deleteEvaluator} disabled={loading !== null || !evaluatorSlug}>
+          11) Delete evaluator
         </Button>
-        <Button className="w-full py-3" disabled>
-          —
+        <Button className="w-full py-3" onClick={actions.deleteDataset} disabled={loading !== null || !datasetId}>
+          12) Delete dataset
         </Button>
       </div>
 
@@ -373,12 +426,13 @@ export function EvaluateDatasetsSection(props: { respanApiKey: string }) {
         <JsonBlock title="Step 3 response" value={r3} emptyText={'Click "3) List datasets"'} />
         <JsonBlock title="Step 4 response" value={r4} emptyText={'Click "4) Retrieve dataset"'} />
         <JsonBlock title="Step 5 response" value={r5} emptyText={'Click "5) Update dataset (PATCH)"'} />
-        <JsonBlock title="Step 6 response" value={r6} emptyText={'Click "6) Delete dataset"'} />
-        <JsonBlock title="Step 7 response" value={r7} emptyText={'Click "7) List dataset logs (GET)"'} />
-        <JsonBlock title="Step 8 response" value={r8} emptyText={'Click "8) List logs (filters)"'} />
-        <JsonBlock title="Step 9 response" value={r9} emptyText={'Click "9) Create dataset w/ specified logs"'} />
-        <JsonBlock title="Step 10 response" value={r10} emptyText={'Click "10) List eval runs"'} />
-        <JsonBlock title="Step 11 response" value={r11} emptyText={'Click "11) Run eval on dataset"'} />
+        <JsonBlock title="Step 6 response" value={r7} emptyText={'Click "6) List dataset logs (GET)"'} />
+        <JsonBlock title="Step 7 response" value={r8} emptyText={'Click "7) List logs (filters)"'} />
+        <JsonBlock title="Step 8 response" value={r9} emptyText={'Click "8) Create dataset w/ specified logs"'} />
+        <JsonBlock title="Step 9 response" value={r10} emptyText={'Click "9) List eval runs"'} />
+        <JsonBlock title="Step 10 response" value={r11} emptyText={'Click "10) Create evaluator + run eval"'} />
+        <JsonBlock title="Step 11 response" value={r12} emptyText={'Click "11) Delete evaluator"'} />
+        <JsonBlock title="Step 12 response" value={r6} emptyText={'Click "12) Delete dataset"'} />
       </div>
     </div>
   );

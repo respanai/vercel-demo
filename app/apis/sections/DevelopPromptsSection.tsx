@@ -45,7 +45,8 @@ export function DevelopPromptsSection(props: { respanApiKey: string }) {
   >(null);
 
   const [promptId, setPromptId] = useState<string | null>(null);
-  const [versionId, setVersionId] = useState<string | null>(null);
+  const [versionNumber, setVersionNumber] = useState<string | null>(null);
+  const [promptVersionId, setPromptVersionId] = useState<string | null>(null);
 
   const [r1, setR1] = useState<any>(null);
   const [r2, setR2] = useState<any>(null);
@@ -115,6 +116,11 @@ export function DevelopPromptsSection(props: { respanApiKey: string }) {
       try {
         const data = await postProxy("/api/respan/prompts/versions/list", respanApiKey, { prompt_id: promptId });
         setR5(data);
+        const first = (data as any)?.response?.results?.[0] || (Array.isArray((data as any)?.response) ? (data as any).response[0] : undefined);
+        const version = pickId(first, ["version", "version_number"]);
+        if (version) setVersionNumber(version);
+        const recordId = pickId(first, ["prompt_version_id", "id", "promptVersionId"]);
+        if (recordId) setPromptVersionId(recordId);
       } finally {
         setLoading(null);
       }
@@ -132,31 +138,23 @@ export function DevelopPromptsSection(props: { respanApiKey: string }) {
           stream: false,
           temperature: 0.7,
         });
-        const id = pickId((createData as any)?.response, ["id", "prompt_version_id", "promptVersionId", "version"]);
-        if (id) {
-          setVersionId(id);
-          // Deploy the newly created version via PATCH
-          const deployData = await postProxy("/api/respan/prompts/versions/update", respanApiKey, {
-            prompt_id: promptId,
-            prompt_version_id: id,
-            deploy: true,
-          });
-          setR6({ create: createData, deploy: deployData });
-        } else {
-          setR6(createData);
-        }
+        const version = pickId((createData as any)?.response, ["version", "version_number"]);
+        if (version) setVersionNumber(version);
+        const recordId = pickId((createData as any)?.response, ["prompt_version_id", "id", "promptVersionId"]);
+        if (recordId) setPromptVersionId(recordId);
+        setR6(createData);
       } finally {
         setLoading(null);
       }
     },
     updateVersion: async () => {
-      if (!promptId || !versionId) return;
+      if (!promptId || !versionNumber) return;
       setLoading("update-version");
       setR7(null);
       try {
         const data = await postProxy("/api/respan/prompts/versions/update", respanApiKey, {
           prompt_id: promptId,
-          prompt_version_id: versionId,
+          version: versionNumber,
           messages: demoMessages,
           model: "gpt-4o-mini",
           temperature: 0.5,
@@ -168,13 +166,13 @@ export function DevelopPromptsSection(props: { respanApiKey: string }) {
       }
     },
     deleteVersion: async () => {
-      if (!promptId || !versionId) return;
+      if (!promptId || !versionNumber) return;
       setLoading("delete-version");
       setR8(null);
       try {
         const data = await postProxy("/api/respan/prompts/versions/delete", respanApiKey, {
           prompt_id: promptId,
-          prompt_version_id: versionId,
+          version: versionNumber,
         });
         setR8(data);
       } finally {
@@ -218,7 +216,10 @@ export function DevelopPromptsSection(props: { respanApiKey: string }) {
             <span className="text-gray-400">prompt_id:</span> {promptId || "—"}
           </Card>
           <Card className="p-3 text-xs font-mono">
-            <span className="text-gray-400">prompt_version_id:</span> {versionId || "—"}
+            <span className="text-gray-400">version:</span> {versionNumber || "—"}
+          </Card>
+          <Card className="p-3 text-xs font-mono">
+            <span className="text-gray-400">prompt_version_id:</span> {promptVersionId || "—"}
           </Card>
         </div>
       </div>
@@ -233,23 +234,23 @@ export function DevelopPromptsSection(props: { respanApiKey: string }) {
         <Button className="w-full py-3" onClick={actions.updatePrompt} disabled={loading !== null || !promptId}>
           3) Update prompt
         </Button>
-        <Button className="w-full py-3" onClick={actions.deletePrompt} disabled={loading !== null || !promptId}>
-          4) Delete prompt
+        <Button className="w-full py-3" onClick={actions.listVersions} disabled={loading !== null || !promptId}>
+          4) List versions
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <Button className="w-full py-3" onClick={actions.listVersions} disabled={loading !== null || !promptId}>
-          5) List versions
-        </Button>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
         <Button className="w-full py-3" onClick={actions.createVersion} disabled={loading !== null || !promptId}>
-          6) Create version
+          5) Create version
         </Button>
-        <Button className="w-full py-3" onClick={actions.updateVersion} disabled={loading !== null || !promptId || !versionId}>
-          7) Update version
+        <Button className="w-full py-3" onClick={actions.updateVersion} disabled={loading !== null || !promptId || !versionNumber}>
+          6) Update version
         </Button>
-        <Button className="w-full py-3" onClick={actions.deleteVersion} disabled={loading !== null || !promptId || !versionId}>
-          8) Delete version
+        <Button className="w-full py-3" onClick={actions.deleteVersion} disabled={loading !== null || !promptId || !versionNumber}>
+          7) Delete version
+        </Button>
+        <Button className="w-full py-3" onClick={actions.deletePrompt} disabled={loading !== null || !promptId}>
+          8) Delete prompt
         </Button>
       </div>
 
@@ -257,11 +258,11 @@ export function DevelopPromptsSection(props: { respanApiKey: string }) {
         <JsonBlock title="1) List prompts response" value={r1} emptyText={'Click "1) List prompts"'} />
         <JsonBlock title="2) Create prompt response" value={r2} emptyText={'Click "2) Create prompt"'} />
         <JsonBlock title="3) Update prompt response" value={r3} emptyText={'Click "3) Update prompt"'} />
-        <JsonBlock title="4) Delete prompt response" value={r4} emptyText={'Click "4) Delete prompt"'} />
-        <JsonBlock title="5) List versions response" value={r5} emptyText={'Click "5) List versions"'} />
-        <JsonBlock title="6) Create version response" value={r6} emptyText={'Click "6) Create version"'} />
-        <JsonBlock title="7) Update version response" value={r7} emptyText={'Click "7) Update version"'} />
-        <JsonBlock title="8) Delete version response" value={r8} emptyText={'Click "8) Delete version"'} />
+        <JsonBlock title="4) List versions response" value={r5} emptyText={'Click "4) List versions"'} />
+        <JsonBlock title="5) Create version response" value={r6} emptyText={'Click "5) Create version"'} />
+        <JsonBlock title="6) Update version response" value={r7} emptyText={'Click "6) Update version"'} />
+        <JsonBlock title="7) Delete version response" value={r8} emptyText={'Click "7) Delete version"'} />
+        <JsonBlock title="8) Delete prompt response" value={r4} emptyText={'Click "8) Delete prompt"'} />
       </div>
     </div>
   );

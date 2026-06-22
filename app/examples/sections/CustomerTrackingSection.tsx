@@ -10,6 +10,8 @@ interface ApiResponse {
   response?: string;
   usage?: unknown;
   metadataSent?: Record<string, unknown>;
+  logId?: string | null;
+  gatewayRequestId?: string | null;
   explanation?: string;
   error?: string;
 }
@@ -50,12 +52,13 @@ export function CustomerTrackingSection(props: { respanApiKey: string }) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-sm font-bold">Customer email + cost tracking</h2>
+        <h2 className="text-sm font-bold">Customer email + custom properties</h2>
         <p className="text-xs text-gray-600 mt-1">
-          Bare <span className="font-mono">generateText</span> call with{" "}
-          <span className="font-mono">experimental_telemetry.metadata.customer_params</span>.
-          No Respan wrapper helpers. Populates the Customer email / name / ID
-          columns in the Spans table while keeping model / tokens / cost intact.
+          Direct Respan gateway request with top-level{" "}
+          <span className="font-mono">customer_params</span>,{" "}
+          <span className="font-mono">metadata</span>, and{" "}
+          <span className="font-mono">properties</span>. Populates customer columns,
+          filterable metadata, native custom properties, and keeps model / tokens / cost intact.
         </p>
       </div>
 
@@ -69,7 +72,7 @@ export function CustomerTrackingSection(props: { respanApiKey: string }) {
             disabled={loading}
           />
           <p className="text-[10px] text-gray-500 mt-1">
-            Sent as <span className="font-mono">customer_params.email</span> -- shows in the Customer email column.
+            Sent as <span className="font-mono">customer_params.email</span>.
           </p>
         </div>
         <div>
@@ -81,7 +84,7 @@ export function CustomerTrackingSection(props: { respanApiKey: string }) {
             disabled={loading}
           />
           <p className="text-[10px] text-gray-500 mt-1">
-            Sent as <span className="font-mono">customer_params.name</span> -- shows in the Customer name column.
+            Sent as <span className="font-mono">customer_params.name</span>.
           </p>
         </div>
         <div>
@@ -109,7 +112,7 @@ export function CustomerTrackingSection(props: { respanApiKey: string }) {
       </Card>
 
       <Button className="w-full py-3" onClick={run} disabled={loading || !message.trim()}>
-        {loading ? "Running..." : "Send & trace to Respan"}
+        {loading ? "Running..." : "Send & log to Respan"}
       </Button>
 
       {result?.error && (
@@ -125,23 +128,32 @@ export function CustomerTrackingSection(props: { respanApiKey: string }) {
             <p className="text-sm whitespace-pre-wrap">{result.response}</p>
           </Card>
 
+          {(result.logId || result.gatewayRequestId) && (
+            <Card variant="muted" className="p-4">
+              <Label className="mb-2 block">Respan log IDs</Label>
+              <div className="space-y-1 text-[11px] font-mono break-all">
+                {result.logId && <p>log_id: {result.logId}</p>}
+                {result.gatewayRequestId && <p>gateway_request_id: {result.gatewayRequestId}</p>}
+              </div>
+            </Card>
+          )}
+
           <Card variant="muted" className="p-4">
-            <Label className="mb-2 block">Metadata sent to Respan</Label>
+            <Label className="mb-2 block">Fields sent to Respan</Label>
             <pre className="text-[11px] font-mono whitespace-pre-wrap break-all">
               {JSON.stringify(result.metadataSent, null, 2)}
             </pre>
             <p className="text-[10px] text-gray-500 mt-2">
-              Customer fields must live inside the{" "}
-              <span className="font-mono">customer_params</span> object for the
-              dedicated UI columns to populate. Anything outside (e.g.{" "}
-              <span className="font-mono">feature</span>,{" "}
-              <span className="font-mono">plan_tier</span>) is still kept as raw metadata.
+              <span className="font-mono">metadata</span> is filterable with{" "}
+              <span className="font-mono">metadata__*</span>.{" "}
+              <span className="font-mono">properties</span> is native JSON and appears as
+              custom properties in the log detail.
             </p>
           </Card>
 
           {result.usage != null && (
             <Card variant="muted" className="p-4">
-              <Label className="mb-2 block">LLM usage (proves cost/token tracking works)</Label>
+              <Label className="mb-2 block">LLM usage</Label>
               <pre className="text-[11px] font-mono whitespace-pre-wrap break-all">
                 {JSON.stringify(result.usage, null, 2)}
               </pre>
@@ -160,19 +172,24 @@ export function CustomerTrackingSection(props: { respanApiKey: string }) {
         <Label className="mb-2 block">What to verify in Respan</Label>
         <ul className="text-xs text-gray-700 space-y-1 list-disc pl-4">
           <li>
-            Span side panel: type is <strong>LLM generation</strong> (blue), not <strong>Task</strong> (yellow).
+            Logs view: <span className="font-mono">model</span> shows{" "}
+            <span className="font-mono">gpt-4o-mini</span> with non-zero cost and tokens.
           </li>
           <li>
-            Spans view: <span className="font-mono">model</span> shows{" "}
-            <span className="font-mono">gpt-4o-mini</span> (not NONE).
+            Log columns: <strong>Customer email</strong>, <strong>Customer name</strong>, and{" "}
+            <strong>Customer ID</strong> are populated.
           </li>
           <li>
-            Spans view: <span className="font-mono">cost</span> and{" "}
-            <span className="font-mono">tokens</span> are non-zero.
+            Log detail: <span className="font-mono">metadata</span> includes{" "}
+            <span className="font-mono">feature</span> and{" "}
+            <span className="font-mono">plan_tier</span>.
           </li>
           <li>
-            Spans view: <strong>Customer email</strong>, <strong>Customer name</strong>, and{" "}
-            <strong>Customer ID</strong> columns are populated.
+            Log detail: <span className="font-mono">properties</span> includes{" "}
+            <span className="font-mono">account_region</span>,{" "}
+            <span className="font-mono">billing_segment</span>,{" "}
+            <span className="font-mono">seats</span>, and{" "}
+            <span className="font-mono">renewal_risk</span>.
           </li>
         </ul>
       </Card>

@@ -136,8 +136,13 @@ export const SCENARIOS: Scenario[] = [
   },
 ];
 
-export const GATEWAY_BASE =
-  process.env.RESPAN_BASE_URL || "https://api.respan.ai";
+function normalizeRespanBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, "").replace(/\/api$/i, "");
+}
+
+export const GATEWAY_BASE = normalizeRespanBaseUrl(
+  process.env.RESPAN_BASE_URL || "https://api.respan.ai"
+);
 
 export function getTenant(id: string): Tenant | undefined {
   return TENANTS.find((t) => t.id === id);

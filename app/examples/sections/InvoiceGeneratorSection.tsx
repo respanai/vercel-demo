@@ -60,7 +60,7 @@ function parseExtraction(content: string | undefined): InvoiceData | null {
               description: i.description ?? "",
               quantity: Number(i.quantity) || 0,
               rate: Number(i.rate) || 0,
-              amount: Number(i.amount) ?? (i.quantity || 0) * (i.rate || 0),
+              amount: Number(i.amount) || (Number(i.quantity) || 0) * (Number(i.rate) || 0),
             }))
           : [{ description: "", quantity: 1, rate: 0, amount: 0 }],
       payment_instructions: out.payment_instructions ?? "",
@@ -70,9 +70,18 @@ function parseExtraction(content: string | undefined): InvoiceData | null {
   }
 }
 
+function getGatewayError(data: any): string {
+  return (
+    data?.response?.error?.message ||
+    data?.response?.message ||
+    data?.error ||
+    "Invoice extraction did not return valid JSON."
+  );
+}
+
 export function InvoiceGeneratorSection(props: { respanApiKey: string }) {
   const { respanApiKey } = props;
-  const [promptId, setPromptId] = useState("dde652380a9a43529e8fe39ac4462454");
+  const [promptId, setPromptId] = useState("");
   const [rawText, setRawText] = useState(
     "Invoice from Acme Corp to Rho. Invoice #INV-2026-001. Issue date Feb 5 2026, due March 7 2026. USD. Item: Consulting services, 10 hours at $150/hr. Payment by wire to account 123456."
   );
@@ -113,8 +122,11 @@ export function InvoiceGeneratorSection(props: { respanApiKey: string }) {
       setLastInput(rawText);
       setLastOutput(typeof content === "string" ? content : content ? JSON.stringify(content, null, 2) : null);
       const parsed = parseExtraction(content);
-      if (parsed) setFormData(parsed);
-      else if (data?.error) setError(data.error as string);
+      if (parsed) {
+        setFormData(parsed);
+      } else {
+        setError(getGatewayError(data));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
     } finally {
@@ -135,7 +147,7 @@ export function InvoiceGeneratorSection(props: { respanApiKey: string }) {
             <Input
               value={promptId}
               onChange={(e) => setPromptId(e.target.value)}
-              placeholder="e.g. from Respan Prompt Management"
+              placeholder="Optional Respan prompt ID"
               disabled={loading}
             />
           </Card>

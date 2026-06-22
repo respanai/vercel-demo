@@ -31,7 +31,7 @@ export function ApiKeyInputs(props: {
         <div>
           <Label className="block">API keys (optional)</Label>
           <p className="text-xs text-gray-600">
-            Not persisted. If you set env vars in <span className="font-bold">.env.local</span>, you don't need these.
+            Not persisted. This field is used first; otherwise routes use <span className="font-bold">RESPAN_API_KEY</span> from Vercel or <span className="font-bold">.env.local</span>.
           </p>
         </div>
         <Button onClick={() => setShow((s) => !s)} disabled={disabled}>
@@ -39,49 +39,51 @@ export function ApiKeyInputs(props: {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {showOpenAI && (
+      {show && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {showOpenAI && (
+            <div>
+              <Label className="mb-2 block">
+                OpenAI (<span className="font-bold">OPENAI_API_KEY</span>)
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1"
+                  type="password"
+                  placeholder="sk-... (optional)"
+                  value={openaiApiKey}
+                  onChange={(e) => setOpenaiApiKey(e.target.value)}
+                  autoComplete="off"
+                  disabled={disabled}
+                />
+                <Button disabled={disabled} onClick={() => setOpenaiApiKey("")}>
+                  Clear
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div>
             <Label className="mb-2 block">
-              OpenAI (<span className="font-bold">OPENAI_API_KEY</span>)
+              Respan (<span className="font-bold">RESPAN_API_KEY</span>)
             </Label>
             <div className="flex gap-2">
               <Input
                 className="flex-1"
-                type={show ? "text" : "password"}
-                placeholder="sk-... (optional)"
-                value={openaiApiKey}
-                onChange={(e) => setOpenaiApiKey(e.target.value)}
+                type="password"
+                placeholder="(optional)"
+                value={respanApiKey}
+                onChange={(e) => setRespanApiKey(e.target.value)}
                 autoComplete="off"
                 disabled={disabled}
               />
-              <Button disabled={disabled} onClick={() => setOpenaiApiKey("")}>
+              <Button disabled={disabled} onClick={() => setRespanApiKey("")}>
                 Clear
               </Button>
             </div>
           </div>
-        )}
-
-        <div>
-          <Label className="mb-2 block">
-            Respan (<span className="font-bold">RESPAN_API_KEY</span>)
-          </Label>
-          <div className="flex gap-2">
-            <Input
-              className="flex-1"
-              type={show ? "text" : "password"}
-              placeholder="(optional)"
-              value={respanApiKey}
-              onChange={(e) => setRespanApiKey(e.target.value)}
-              autoComplete="off"
-              disabled={disabled}
-            />
-            <Button disabled={disabled} onClick={() => setRespanApiKey("")}>
-              Clear
-            </Button>
-          </div>
         </div>
-      </div>
+      )}
     </Card>
   );
 }

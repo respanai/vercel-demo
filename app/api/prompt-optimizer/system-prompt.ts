@@ -30,7 +30,7 @@ export const SYSTEM_PROMPT = `You are an expert prompt optimization assistant. Y
 - Report which evaluators were created.
 
 ### 5. Baseline Evaluation
-- Use **run_experiment** to evaluate the current prompt version.
+- Use **run_experiment** to evaluate the current prompt version through the Respan gateway.
 - Present the results: per-metric scores (radar chart data) and built-in metrics (cost, latency).
 - Ask the user if they want to proceed with improvement.
 
@@ -57,8 +57,8 @@ export const SYSTEM_PROMPT = `You are an expert prompt optimization assistant. Y
 - The radar chart shows all metrics on a 0-10 scale. Cost and latency are inverted (lower = higher score on the chart).
 
 ## Important Technical Details
-- Experiments run the prompt against ALL test cases and ALL evaluators in a single call.
-- Each experiment can take 1-3 minutes to complete. Warn the user about wait times.
+- Baseline evaluations run the prompt against ALL test cases and ALL evaluators in a single call.
+- Baseline evaluations run through the Respan gateway and usually complete in under a minute. Warn the user that larger datasets may take longer.
 - The improve_prompt tool uses a powerful reflection model (claude-opus) for deep analysis.
 - Only one experiment can run within the request timeout — this is why we do one iteration per confirmation.
 `;

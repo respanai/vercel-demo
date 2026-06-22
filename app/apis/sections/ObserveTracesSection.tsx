@@ -5,6 +5,7 @@ import { JsonBlock } from "../../components/JsonBlock";
 import { postProxy } from "../lib/postProxy";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function ObserveTracesSection(props: { respanApiKey: string }) {
@@ -18,7 +19,7 @@ export function ObserveTracesSection(props: { respanApiKey: string }) {
   };
 
   const [tracesStepLoading, setTracesStepLoading] = useState<"list" | "get" | "summary" | null>(null);
-  const [traceId, setTraceId] = useState<string | null>(null);
+  const [traceId, setTraceId] = useState("");
   const [tracesListResult, setTracesListResult] = useState<any>(null);
   const [tracesGetResult, setTracesGetResult] = useState<any>(null);
   const [tracesSummaryResult, setTracesSummaryResult] = useState<any>(null);
@@ -42,11 +43,12 @@ export function ObserveTracesSection(props: { respanApiKey: string }) {
       }
     },
     get: async () => {
-      if (!traceId) return;
+      const traceUniqueId = traceId.trim();
+      if (!traceUniqueId) return;
       setTracesStepLoading("get");
       setTracesGetResult(null);
       try {
-        const data = await postProxy("/api/respan/traces/get", respanApiKey, { trace_unique_id: traceId });
+        const data = await postProxy("/api/respan/traces/get", respanApiKey, { trace_unique_id: traceUniqueId });
         setTracesGetResult(data);
       } finally {
         setTracesStepLoading(null);
@@ -90,7 +92,15 @@ export function ObserveTracesSection(props: { respanApiKey: string }) {
         <Label className="mb-2 block">Derived IDs</Label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Card className="p-3 text-xs font-mono">
-            <span className="text-gray-400">trace_unique_id:</span> {traceId || "—"}
+            <Label className="mb-2 block text-[10px] uppercase tracking-widest text-gray-400">
+              trace_unique_id
+            </Label>
+            <Input
+              value={traceId}
+              onChange={(event) => setTraceId(event.target.value)}
+              placeholder="Paste or list a trace_unique_id"
+              aria-label="Trace unique ID"
+            />
           </Card>
           <Card className="p-3 text-xs font-mono">
             <span className="text-gray-400">source:</span> list traces → first result
@@ -109,7 +119,7 @@ export function ObserveTracesSection(props: { respanApiKey: string }) {
         <Button
           className="w-full py-3"
           onClick={traces.get}
-          disabled={tracesStepLoading !== null || !traceId}
+          disabled={tracesStepLoading !== null || !traceId.trim()}
         >
           2) Retrieve trace
         </Button>

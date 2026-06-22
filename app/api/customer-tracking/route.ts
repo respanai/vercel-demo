@@ -1,31 +1,16 @@
+import { getRespanGatewayBaseUrl } from "@/lib/respan";
+import { getRespanApiKey, missingUserRespanApiKeyResponse } from "@/lib/respan";
+
 /**
  * Customer Tracking Example
  * -------------------------
- * The minimal Vercel AI SDK + Respan recipe that populates the Customer
- * email / Customer name / Customer ID columns in the Spans table AND keeps
- * model / token / cost intact on every LLM span.
+ * Sends a chat completion through the Respan gateway with the fields the
+ * gateway persists on the request log:
  *
- * No Respan helpers required -- just `generateText` with
- * `experimental_telemetry.metadata.customer_params`. The VercelAIInstrumentor
- * registered in `instrumentation.ts` captures the call as a blue LLM span
- * automatically.
- *
- * Required shape -- customer fields go INSIDE a `customer_params` object:
- *
- *   metadata: {
- *     customer_params: {
- *       customer_identifier: "user_42",
- *       email: "frank@respan.ai",
- *       name: "Frank",
- *     }
- *   }
- *
- * Anything outside `customer_params` is still persisted as raw metadata,
- * but only fields inside `customer_params` populate the Customer columns.
+ *   customer_params -> Customer email / name / ID columns
+ *   metadata        -> filterable custom metadata (metadata__feature, etc.)
+ *   properties      -> native JSON custom properties on the log detail
  */
-
-import { createOpenAI } from "@ai-sdk/openai";
-import { generateText } from "ai";
 
 export const maxDuration = 30;
 
@@ -36,62 +21,102 @@ interface RequestBody {
   customerId: string;
 }
 
+interface GatewayChatCompletion {
+  choices?: Array<{ message?: { content?: string } }>;
+  usage?: unknown;
+  [key: string]: unknown;
+}
+
 export async function POST(req: Request) {
   const { message, customerEmail, customerName, customerId } =
     (await req.json()) as RequestBody;
 
-  const apiKey =
-    req.headers.get("x-respan-api-key")?.trim() || process.env.RESPAN_API_KEY;
-
-  if (!apiKey) {
-    return Response.json(
-      { error: "Respan API key required (header x-respan-api-key or env RESPAN_API_KEY)." },
-      { status: 400 }
-    );
+  const userMessage = typeof message === "string" ? message.trim() : "";
+  if (!userMessage) {
+    return Response.json({ error: "Message is required." }, { status: 400 });
   }
 
-  // Route LLM calls through Respan's gateway so cost + tokens are captured.
-  const provider = createOpenAI({
-    apiKey,
-    baseURL: `${process.env.RESPAN_BASE_URL || "https://api.respan.ai"}/api`,
-  });
+  const apiKey = getRespanApiKey(req);
 
-  // Vercel AI SDK telemetry metadata must be flat (string/number/bool values),
-  // so the customer_params object is JSON-stringified. Respan parses it back
-  // into a structured object and uses it to populate the Customer columns.
+  if (!apiKey) {
+    return missingUserRespanApiKeyResponse();
+  }
+
   const customerParams = {
-    customer_identifier: customerId,
-    email: customerEmail,
-    name: customerName,
+    customer_identifier: customerId || "user_42",
+    email: customerEmail || "frank@respan.ai",
+    name: customerName || "Frank",
   };
 
   const metadata = {
-    customer_params: JSON.stringify(customerParams),
-    // any extra attributes you care about live alongside customer_params:
+    source: "vercel-demo",
     feature: "customer_tracking_demo",
     plan_tier: "pro",
+    example: "customer_email_cost_tracking",
   };
 
+  const properties = {
+    account_region: "us-east",
+    billing_segment: "self_serve",
+    seats: 12,
+    renewal_risk: false,
+  };
+
+  const payload = {
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "You are a friendly customer support assistant." },
+      { role: "user", content: userMessage },
+    ],
+    customer_params: customerParams,
+    metadata,
+    properties,
+  };
+
+  const url = `${getRespanGatewayBaseUrl()}/chat/completions`;
+
   try {
-    const result = await generateText({
-      model: provider("gpt-4o-mini"),
-      system: "You are a friendly customer support assistant.",
-      prompt: message,
-      experimental_telemetry: {
-        isEnabled: true,
-        metadata,
+    const upstream = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify(payload),
     });
 
+    const text = await upstream.text();
+    let data: GatewayChatCompletion | Record<string, unknown>;
+    try {
+      data = JSON.parse(text) as GatewayChatCompletion;
+    } catch {
+      data = { raw: text };
+    }
+
+    if (!upstream.ok) {
+      return Response.json(
+        { error: "Upstream Respan gateway request failed", status: upstream.status, response: data },
+        { status: upstream.status }
+      );
+    }
+
+    const completion = data as GatewayChatCompletion;
+    const response = completion.choices?.[0]?.message?.content ?? "";
+    const logId = upstream.headers.get("x-respan-log-id");
+    const gatewayRequestId = upstream.headers.get("x-respan-gateway-request-id");
+
     return Response.json({
-      response: result.text,
-      usage: result.usage,
-      // Send the un-stringified shape to the UI so it renders nicely.
-      metadataSent: { ...metadata, customer_params: customerParams },
+      response,
+      usage: completion.usage,
+      logId,
+      gatewayRequestId,
+      metadataSent: {
+        customer_params: customerParams,
+        metadata,
+        properties,
+      },
       explanation:
-        "Single bare generateText call. The blue 'ai.generateText' span in " +
-        "Respan should show model=gpt-4o-mini, non-zero tokens/cost, and the " +
-        "Customer email / name / ID columns populated from customer_params.",
+        "Direct Respan gateway chat completion. The request log should show customer email/name/ID, filterable metadata, and native custom properties.",
     });
   } catch (error) {
     console.error("customer-tracking error:", error);

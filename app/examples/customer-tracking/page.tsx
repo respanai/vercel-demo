@@ -21,13 +21,12 @@ export default function CustomerTrackingPage() {
         <div className="mb-8 flex items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Customer email + cost tracking
+              Customer email + custom properties
             </h1>
             <p className="text-xs text-gray-600 mt-2 max-w-2xl">
-              The minimal Vercel AI SDK + Respan recipe that makes the Customer
-              email column populate AND preserves model / token / cost on every
-              LLM span. Toggle between a plain single-call setup and a multi-step
-              workflow.
+              Direct Respan gateway example that populates Customer email / name / ID,
+              filterable metadata, native custom properties, and model / token / cost
+              on the request log.
             </p>
           </div>
           <a

@@ -13,9 +13,10 @@ export function ObserveThreadsSection(props: { respanApiKey: string }) {
   const demoThreadIdentifier = "thread_demo_123";
   const demoCustomerIdentifier = "customer_thread_demo_123";
 
-  const [threadsLoading, setThreadsLoading] = useState<"create" | "list" | null>(null);
+  const [threadsLoading, setThreadsLoading] = useState<"create" | "list" | "delete-user" | null>(null);
   const [createLogResult, setCreateLogResult] = useState<any>(null);
   const [threadsResult, setThreadsResult] = useState<any>(null);
+  const [deleteUserResult, setDeleteUserResult] = useState<any>(null);
 
   const createLogWithThread = async () => {
     setThreadsLoading("create");
@@ -43,6 +44,20 @@ export function ObserveThreadsSection(props: { respanApiKey: string }) {
         },
       });
       setThreadsResult(data);
+    } finally {
+      setThreadsLoading(null);
+    }
+  };
+
+  const deleteDemoCustomer = async () => {
+    setThreadsLoading("delete-user");
+    setDeleteUserResult(null);
+    try {
+      const data = await postProxy("/api/respan/users/delete", respanApiKey, {
+        customer_identifier: demoCustomerIdentifier,
+        environment: "prod",
+      });
+      setDeleteUserResult(data);
     } finally {
       setThreadsLoading(null);
     }
@@ -85,8 +100,12 @@ export function ObserveThreadsSection(props: { respanApiKey: string }) {
         >
           2) List threads
         </Button>
-        <Button className="w-full py-3" disabled>
-          —
+        <Button
+          className="w-full py-3"
+          onClick={deleteDemoCustomer}
+          disabled={threadsLoading !== null}
+        >
+          3) Delete demo customer
         </Button>
         <Button className="w-full py-3" disabled>
           —
@@ -101,6 +120,7 @@ export function ObserveThreadsSection(props: { respanApiKey: string }) {
             emptyText={`Click "1) Create log with thread id"`}
           />
           <JsonBlock title="Step 2 response (List threads)" value={threadsResult} emptyText={'Click "2) List threads"'} />
+          <JsonBlock title="Step 3 response (Delete demo customer)" value={deleteUserResult} emptyText={'Click "3) Delete demo customer"'} />
         </div>
       </div>
     </div>
