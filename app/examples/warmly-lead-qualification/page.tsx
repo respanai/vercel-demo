@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ApiKeyInputs } from "../../components/ApiKeyInputs";
+import { RequireRespanApiKey } from "../../components/RequireRespanApiKey";
 import { WarmlyLeadQualificationSection } from "../sections/WarmlyLeadQualificationSection";
 import { PLATFORM_URL } from "../../config/site";
 
@@ -43,7 +44,9 @@ export default function WarmlyLeadQualificationPage() {
           setRespanApiKey={setRespanApiKey}
         />
 
-        <WarmlyLeadQualificationSection respanApiKey={respanApiKey} />
+        <RequireRespanApiKey respanApiKey={respanApiKey}>
+          <WarmlyLeadQualificationSection respanApiKey={respanApiKey} />
+        </RequireRespanApiKey>
       </div>
     </div>
   );

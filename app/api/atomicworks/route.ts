@@ -25,6 +25,10 @@ import { withAgent, withTool, propagateAttributes } from "@respan/respan";
 import { getClient as getTracingSdk } from "@respan/tracing/dist/utils/tracing.js";
 import { getRespanApiKey, missingUserRespanApiKeyResponse } from "@/lib/respan";
 import {
+  REQUEST_RESPAN_API_KEY_METADATA_KEY,
+  runWithRequestRespanApiKey,
+} from "@/lib/requestScopedRespanTracing";
+import {
   GATEWAY_BASE,
   getScenario,
   getTenant,
@@ -34,6 +38,7 @@ import {
   type Tenant,
 } from "../../examples/atomicworks/config";
 
+export const runtime = "nodejs";
 export const maxDuration = 60;
 
 interface RequestBody {
@@ -306,8 +311,9 @@ export async function POST(req: Request) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      const emit = (event: Record<string, unknown>) =>
-        controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+      await runWithRequestRespanApiKey(apiKey, async () => {
+        const emit = (event: Record<string, unknown>) =>
+          controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
 
       const promptVars = { tenant: tenant.displayName, industry: tenant.industry };
       const totals = { tokens: 0, ms: 0, services: 0, promptsManaged: 0 };
@@ -343,6 +349,7 @@ export async function POST(req: Request) {
               tenant: tenant.displayName,
               scenario: scenario.id,
               ticket_id: ticketId,
+              [REQUEST_RESPAN_API_KEY_METADATA_KEY]: apiKey,
             },
           },
           async () => {
@@ -494,6 +501,7 @@ export async function POST(req: Request) {
         await flushTracingWithoutShutdown();
         controller.close();
       }
+      });
     },
   });
 

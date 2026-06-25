@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ApiKeyInputs } from "../../components/ApiKeyInputs";
+import { RequireRespanApiKey } from "../../components/RequireRespanApiKey";
 import { PromptOptimizerSection } from "../sections/PromptOptimizerSection";
 import { PLATFORM_URL } from "../../config/site";
 
@@ -49,7 +50,9 @@ export default function PromptOptimizerPage() {
           setRespanApiKey={setRespanApiKey}
         />
 
-        <PromptOptimizerSection respanApiKey={respanApiKey} />
+        <RequireRespanApiKey respanApiKey={respanApiKey}>
+          <PromptOptimizerSection respanApiKey={respanApiKey} />
+        </RequireRespanApiKey>
       </div>
     </div>
   );

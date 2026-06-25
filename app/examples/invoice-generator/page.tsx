@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ApiKeyInputs } from "../../components/ApiKeyInputs";
+import { RequireRespanApiKey } from "../../components/RequireRespanApiKey";
 import { InvoiceGeneratorSection } from "../sections/InvoiceGeneratorSection";
 import { PLATFORM_URL } from "../../config/site";
 
@@ -43,7 +44,9 @@ export default function InvoiceGeneratorPage() {
           setRespanApiKey={setRespanApiKey}
         />
 
-        <InvoiceGeneratorSection respanApiKey={respanApiKey} />
+        <RequireRespanApiKey respanApiKey={respanApiKey}>
+          <InvoiceGeneratorSection respanApiKey={respanApiKey} />
+        </RequireRespanApiKey>
       </div>
     </div>
   );

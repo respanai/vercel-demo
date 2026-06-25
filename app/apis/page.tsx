@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ApiKeyInputs } from "../components/ApiKeyInputs";
+import { RequireRespanApiKey } from "../components/RequireRespanApiKey";
 import { ObserveLogsSection } from "./sections/ObserveLogsSection";
 import { ObserveTracesSection } from "./sections/ObserveTracesSection";
 import { ObserveThreadsSection } from "./sections/ObserveThreadsSection";
@@ -11,6 +12,7 @@ import { DevelopGatewaySection } from "./sections/DevelopGatewaySection";
 import { DevelopPromptsSection } from "./sections/DevelopPromptsSection";
 import { DevelopExperimentsSection } from "./sections/DevelopExperimentsSection";
 import { EvaluateDatasetsSection } from "./sections/EvaluateDatasetsSection";
+import { EvaluateEvaluatorSection } from "./sections/EvaluateEvaluatorSection";
 import { PLATFORM_URL } from "../config/site";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,6 +24,7 @@ type ApiSection =
   | "observe-threads"
   | "observe-users"
   | "evaluate-datasets"
+  | "evaluate-evaluator"
   | "develop-gateway"
   | "develop-prompts"
   | "develop-experiments";
@@ -61,7 +64,8 @@ export default function ApisPage() {
           setRespanApiKey={setRespanApiKey}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6">
+        <RequireRespanApiKey respanApiKey={respanApiKey}>
+          <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6">
           <Card className="p-4">
             <Label className="mb-3 block">Sections</Label>
 
@@ -106,6 +110,13 @@ export default function ApisPage() {
               >
                 Datasets
               </Button>
+              <Button
+                variant={section === "evaluate-evaluator" ? "primary" : "default"}
+                className="w-full justify-start text-left"
+                onClick={() => setSection("evaluate-evaluator")}
+              >
+                Evaluator
+              </Button>
             </div>
 
             <Label className="mb-2 block text-gray-300">Develop</Label>
@@ -140,11 +151,13 @@ export default function ApisPage() {
             {section === "observe-threads" && <ObserveThreadsSection respanApiKey={respanApiKey} />}
             {section === "observe-users" && <ObserveUsersSection respanApiKey={respanApiKey} />}
             {section === "evaluate-datasets" && <EvaluateDatasetsSection respanApiKey={respanApiKey} />}
+            {section === "evaluate-evaluator" && <EvaluateEvaluatorSection respanApiKey={respanApiKey} />}
             {section === "develop-gateway" && <DevelopGatewaySection respanApiKey={respanApiKey} />}
             {section === "develop-prompts" && <DevelopPromptsSection respanApiKey={respanApiKey} />}
             {section === "develop-experiments" && <DevelopExperimentsSection respanApiKey={respanApiKey} />}
           </div>
-        </div>
+          </div>
+        </RequireRespanApiKey>
       </div>
     </div>
   );

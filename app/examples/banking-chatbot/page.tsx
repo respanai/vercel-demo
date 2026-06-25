@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ApiKeyInputs } from "../../components/ApiKeyInputs";
+import { RequireRespanApiKey } from "../../components/RequireRespanApiKey";
 import { BankingChatbotSection } from "../sections/BankingChatbotSection";
 import { PLATFORM_URL } from "../../config/site";
 
@@ -43,7 +44,9 @@ export default function BankingChatbotPage() {
           setRespanApiKey={setRespanApiKey}
         />
 
-        <BankingChatbotSection respanApiKey={respanApiKey} />
+        <RequireRespanApiKey respanApiKey={respanApiKey}>
+          <BankingChatbotSection respanApiKey={respanApiKey} />
+        </RequireRespanApiKey>
       </div>
     </div>
   );
