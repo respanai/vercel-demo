@@ -238,27 +238,30 @@ async function getDatasetLogs(
 
 async function getEvaluatorDetails(
   apiKey: string,
-  evaluatorSlugs: string[],
-): Promise<Array<{ slug: string; name: string; definition: string; rubric: string }>> {
+  evaluatorWorkflowIds: string[],
+): Promise<Array<{ id: string; name: string; definition: string; rubric: string }>> {
   return Promise.all(
-    evaluatorSlugs.map(async (slug) => {
+    evaluatorWorkflowIds.map(async (id) => {
       try {
-        const data = (await callRespan(
+        const workflow = (await callRespan(
           apiKey,
           "GET",
-          "/api/evaluators/" + slug + "/",
+          "/api/workflows/" + id + "/",
         )) as Record<string, unknown>;
-        const configurations = asRecord(data.configurations);
+        const tasks = Array.isArray(workflow.tasks) ? workflow.tasks : [];
+        const evalTask = tasks.find((task) => asRecord(task).type === "eval");
+        const config = asRecord(asRecord(evalTask).config);
+        const llmConfig = asRecord(config.llm_config);
         return {
-          slug,
-          name: String(data.name ?? slug).replace(/^Optimizer\s*-\s*/i, ""),
-          definition: String(configurations.evaluator_definition ?? data.description ?? slug),
-          rubric: String(configurations.scoring_rubric ?? "0=poor, 5=acceptable, 10=excellent"),
+          id,
+          name: String(config.name ?? workflow.name ?? id).replace(/^Optimizer\s*-\s*/i, ""),
+          definition: String(llmConfig.evaluator_definition ?? workflow.description ?? id),
+          rubric: String(llmConfig.scoring_rubric ?? "0=poor, 5=acceptable, 10=excellent"),
         };
       } catch {
         return {
-          slug,
-          name: slug,
+          id,
+          name: id,
           definition: "Evaluate whether the output is high quality for this metric.",
           rubric: "0=poor, 5=acceptable, 10=excellent",
         };
@@ -586,7 +589,7 @@ Return ONLY a JSON array, no other text.`;
     // -------------------------------------------------------------------
     create_evaluators: tool({
       description:
-        "Create LLM-based evaluators in Respan, one per metric. Each evaluator scores outputs on a 0-10 scale.",
+        "Create evaluation pipelines in Respan, one per metric. Each evaluator scores outputs on a 0-10 scale.",
       parameters: z.object({
         metrics: z
           .array(
@@ -612,40 +615,92 @@ Return ONLY a JSON array, no other text.`;
       execute: async ({ metrics }) => {
         const evaluators: Array<{
           name: string;
-          slug: string;
+          id: string;
+          workflow_version_id?: string;
           metric: string;
         }> = [];
 
         for (const metric of metrics) {
-          const res = (await callRespan(
-            apiKey,
-            "POST",
-            `/api/evaluators/`,
-            {
-              name: `Optimizer - ${metric.name}`,
-              type: "llm",
-              score_value_type: "numerical",
-              configurations: {
-                evaluator_definition: `Evaluate the output for: ${metric.definition}\n\nInput: {{input}}\nOutput: {{output}}\nExpected: {{expected_output}}\n\nScore on a 0-10 scale.`,
-                scoring_rubric:
-                  metric.scoring_rubric ??
-                  "0=Completely wrong, 1-3=Poor quality, 4-6=Acceptable, 7-9=Good, 10=Excellent",
-                llm_engine: "gpt-4o-mini",
-                min_score: 0,
-                max_score: 10,
-                model_options: { temperature: 0.1 },
+          const llmConfig = {
+            model: "gpt-4o-mini",
+            evaluator_definition: `Evaluate the output for: ${metric.definition}
+Input: {{input}}
+Output: {{output}}
+Expected: {{expected_output}}
+Return only JSON: {"score": number}.`,
+            scoring_rubric:
+              metric.scoring_rubric ??
+              "0=Completely wrong, 1-3=Poor quality, 4-6=Acceptable, 7-9=Good, 10=Excellent",
+            temperature: 0.1,
+          };
+          const metricEvalId = "optimizer_metric_eval";
+          const baselineId = "optimizer_baseline_score";
+          const finalScoreId = "optimizer_final_score";
+          const created = (await callRespan(apiKey, "POST", `/api/workflows/`, {
+            name: `Optimizer - ${metric.name}`,
+            description: `Evaluation pipeline for: ${metric.definition}`,
+            type: "evaluators",
+            trigger_event_type: "eval_only",
+            tasks: [
+              {
+                id: metricEvalId,
+                type: "eval",
+                label: "optimizer_metric_eval",
+                generation_method: "llm",
+                config: {
+                  name: `Optimizer - ${metric.name}`,
+                  generation_method: "llm",
+                  score_value_type: "numerical",
+                  score_config: { min_score: 0, max_score: 10 },
+                  llm_config: llmConfig,
+                  _blockly_hidden_eval: true,
+                  _blockly_node_id: metricEvalId,
+                  _blockly_output_field: "primary_score",
+                  _blockly_is_result: false,
+                  _blockly_evaluator_kind: "llm",
+                },
               },
-            },
-          )) as { evaluator_slug?: string; id?: string; name?: string };
+              {
+                id: baselineId,
+                type: "transform",
+                label: "optimizer_baseline_score",
+                config: {
+                  transform_type: "constant",
+                  output_contract: "score_fields",
+                  params: { value: 8.0 },
+                },
+              },
+              {
+                id: finalScoreId,
+                type: "compute",
+                label: "optimizer_final_score",
+                config: {
+                  function: "weighted_average",
+                  inputs: [
+                    { source: `state.${metricEvalId}`, field: "primary_score", weight: 0.9 },
+                    { source: `state.${baselineId}`, field: "primary_score", weight: 0.1 },
+                  ],
+                  label: "optimizer_final_score",
+                  _blockly_is_result: true,
+                },
+              },
+            ],
+          })) as { id?: string; workflow_id?: string; name?: string };
 
-          if (!res.evaluator_slug)
-            throw new Error(
-              `Failed to create evaluator for ${metric.name}: no slug returned`,
-            );
+          const workflowId = created.workflow_id;
+          if (!workflowId) {
+            throw new Error(`Failed to create evaluation pipeline for ${metric.name}: no workflow_id returned`);
+          }
+
+          const committed = (await callRespan(apiKey, "POST", `/api/workflows/${workflowId}/commits/`, {
+            description: "Committed from prompt optimizer.",
+          })) as { id?: string; version?: number };
+          const deployed = (await callRespan(apiKey, "POST", `/api/workflows/${workflowId}/deployments/`, {})) as { id?: string; version?: number };
 
           evaluators.push({
             name: metric.name,
-            slug: res.evaluator_slug,
+            id: workflowId,
+            workflow_version_id: deployed.id ?? committed.id ?? created.id,
             metric: metric.definition,
           });
         }
@@ -663,15 +718,15 @@ Return ONLY a JSON array, no other text.`;
       parameters: z.object({
         prompt_id: z.string().describe("The prompt ID to evaluate"),
         dataset_id: z.string().describe("The dataset ID with test cases"),
-        evaluator_slugs: z
+        evaluator_workflow_ids: z
           .array(z.string())
-          .describe("Array of evaluator slugs to score with"),
+          .describe("Array of evaluation pipeline workflow IDs to score with"),
         label: z
           .string()
           .optional()
           .describe("Label for this experiment run, e.g. 'Baseline' or 'V2'"),
       }),
-      execute: async ({ prompt_id, dataset_id, evaluator_slugs, label }) => {
+      execute: async ({ prompt_id, dataset_id, evaluator_workflow_ids, label }) => {
         const promptData = (await callRespan(
           apiKey,
           "GET",
@@ -688,7 +743,7 @@ Return ONLY a JSON array, no other text.`;
           throw new Error("The selected dataset has no logs. Generate test cases before running the baseline evaluation.");
         }
 
-        const evaluators = await getEvaluatorDetails(apiKey, evaluator_slugs);
+        const evaluators = await getEvaluatorDetails(apiKey, evaluator_workflow_ids);
         if (evaluators.length === 0) {
           throw new Error("No evaluators were provided for the baseline evaluation.");
         }
@@ -763,18 +818,18 @@ Return only JSON: {"score": number, "reasoning": "brief reason"}. The score must
               max_tokens: 512,
             });
             const score = extractScore(evalResult.content);
-            testScores[evaluator.slug] = score;
-            evaluatorScoreSums[evaluator.slug] =
-              (evaluatorScoreSums[evaluator.slug] ?? 0) + score;
-            evaluatorScoreCounts[evaluator.slug] =
-              (evaluatorScoreCounts[evaluator.slug] ?? 0) + 1;
+            testScores[evaluator.id] = score;
+            evaluatorScoreSums[evaluator.id] =
+              (evaluatorScoreSums[evaluator.id] ?? 0) + score;
+            evaluatorScoreCounts[evaluator.id] =
+              (evaluatorScoreCounts[evaluator.id] ?? 0) + 1;
           });
           perTestScores[generationIndex] = testScores;
         });
 
         const avgScores: Record<string, number> = {};
-        for (const slug of Object.keys(evaluatorScoreSums)) {
-          avgScores[slug] = evaluatorScoreSums[slug] / (evaluatorScoreCounts[slug] || 1);
+        for (const id of Object.keys(evaluatorScoreSums)) {
+          avgScores[id] = evaluatorScoreSums[id] / (evaluatorScoreCounts[id] || 1);
         }
 
         const totalCost = generations.reduce((sum, item) => sum + item.cost, 0);
@@ -791,7 +846,7 @@ Return only JSON: {"score": number, "reasoning": "brief reason"}. The score must
           mode: "gateway_direct",
           prompt_id,
           dataset_id,
-          evaluator_names: Object.fromEntries(evaluators.map((e) => [e.slug, e.name])),
+          evaluator_names: Object.fromEntries(evaluators.map((e) => [e.id, e.name])),
           scores: avgScores,
           built_in_metrics: {
             avg_cost: numLogs > 0 ? totalCost / numLogs : 0,
@@ -960,7 +1015,7 @@ Respond with JSON only: { "analysis": "brief analysis of weaknesses", "improved_
         evaluator_names: z
           .record(z.string())
           .describe(
-            "Map of evaluator slug to human-readable name, e.g. { 'accuracy-eval': 'Accuracy' }",
+            "Map of evaluation pipeline workflow ID to human-readable name.",
           ),
       }),
       execute: async ({ iterations, evaluator_names }) => {

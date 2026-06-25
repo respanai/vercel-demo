@@ -276,13 +276,18 @@ function EvaluatorsResult({ result }: { result: any }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {result.evaluators?.map((e: any) => (
           <div
-            key={e.slug}
+            key={e.id}
             className="border border-gray-200 bg-white p-2 space-y-1"
           >
             <div className="font-bold text-[10px]">{e.name}</div>
             <div className="text-gray-500 font-mono text-[10px] truncate">
-              {e.slug}
+              {e.id}
             </div>
+            {e.workflow_version_id && (
+              <div className="text-gray-400 font-mono text-[10px] truncate">
+                {e.workflow_version_id}
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -1,11 +1,39 @@
-import { Respan } from "@respan/respan";
-import { VercelAIInstrumentor } from "@respan/instrumentation-vercel";
+let initialized = false;
 
 export async function register() {
-  const respan = new Respan({
-    apiKey: process.env.RESPAN_API_KEY,
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  if (initialized) return;
+  initialized = true;
+
+  const [{ startTracing }, { VercelAIInstrumentor }, tracing] = await Promise.all([
+    import("@respan/tracing/dist/utils/tracing.js"),
+    import("@respan/instrumentation-vercel"),
+    import("./lib/requestScopedRespanTracing"),
+  ]);
+
+  await startTracing({
+    apiKey: "request-scoped-key",
     appName: "vercel-demo",
-    instrumentations: [new VercelAIInstrumentor()],
+    disabledInstrumentations: [
+      "openAI",
+      "anthropic",
+      "azureOpenAI",
+      "cohere",
+      "bedrock",
+      "googleVertexAI",
+      "googleAIPlatform",
+      "pinecone",
+      "together",
+      "langChain",
+      "llamaIndex",
+      "chromaDB",
+      "qdrant",
+    ],
+    exporter: new tracing.RequestScopedRespanOtlpExporter(),
+    spanNameStyle: "semantic",
+    silenceInitializationMessage: true,
+    spanPostprocessCallback: tracing.attachRequestRespanApiKey,
   });
-  await respan.initialize();
+
+  new VercelAIInstrumentor().activate();
 }

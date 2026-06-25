@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ApiKeyInputs } from "../../components/ApiKeyInputs";
+import { RequireRespanApiKey } from "../../components/RequireRespanApiKey";
 import { OpsConsole } from "./OpsConsole";
 import { PLATFORM_URL } from "../../config/site";
 
@@ -63,7 +64,9 @@ function AtomicworksDemo() {
           setRespanApiKey={setRespanApiKey}
         />
 
-        <OpsConsole respanApiKey={respanApiKey} />
+        <RequireRespanApiKey respanApiKey={respanApiKey}>
+          <OpsConsole respanApiKey={respanApiKey} />
+        </RequireRespanApiKey>
 
         {!embed && (
           <div className="mt-8 border-t border-gray-100 pt-4 text-[11px] text-gray-500 leading-relaxed">

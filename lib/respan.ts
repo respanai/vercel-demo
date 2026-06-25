@@ -9,24 +9,18 @@ export function getRespanGatewayBaseUrl(): string {
   return `${getRespanBaseUrl()}/api`;
 }
 
-
 export const RESPAN_API_KEY_HEADER = "x-respan-api-key";
 
 export const MISSING_USER_RESPAN_API_KEY_MESSAGE =
-  "Missing Respan API key. Enter it in the API Keys panel or set RESPAN_API_KEY in Vercel Environment Variables.";
+  "Missing Respan API key. Enter it in the API Keys panel before running this demo.";
 
 export function getUserRespanApiKey(req: Request): string | undefined {
   const fromHeader = req.headers.get(RESPAN_API_KEY_HEADER)?.trim();
   return fromHeader || undefined;
 }
 
-export function getServerRespanApiKey(): string | undefined {
-  const fromEnv = process.env.RESPAN_API_KEY?.trim();
-  return fromEnv || undefined;
-}
-
 export function getRespanApiKey(req: Request): string | undefined {
-  return getUserRespanApiKey(req) ?? getServerRespanApiKey();
+  return getUserRespanApiKey(req);
 }
 
 export function missingUserRespanApiKeyResponse(): Response {

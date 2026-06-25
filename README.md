@@ -11,10 +11,11 @@ A Next.js demo application showcasing Respan tracing, API workflows, and gateway
 
 This demo routes model calls through the Respan gateway. Vercel does not need an `OPENAI_API_KEY` for the included examples.
 
-The server routes use the OpenAI-compatible Vercel AI SDK provider with Respan credentials. Requests resolve credentials in this order: the UI-provided `x-respan-api-key` header first, then `RESPAN_API_KEY` from Vercel/`.env.local`.
+The server routes use the OpenAI-compatible Vercel AI SDK provider with the Respan key typed into the page. Browser-driven requests must include the `x-respan-api-key` header; routes intentionally ignore `RESPAN_API_KEY` from Vercel, `.env`, or `.env.local`.
 
 ```ts
-const apiKey = getRespanApiKey(req); // x-respan-api-key first, then RESPAN_API_KEY
+const apiKey = getRespanApiKey(req); // x-respan-api-key only
+if (!apiKey) return missingUserRespanApiKeyResponse();
 
 createOpenAI({
   apiKey,
@@ -42,15 +43,9 @@ yarn install
 
 ### Configure Env Vars
 
-Create a `.env.local` file in this repo root:
+No `.env.local` file is required for browser-driven demo requests. Enter your Respan API key in the page's API Keys panel before running examples or API tests.
 
-```bash
-# Respan gateway + tracing
-RESPAN_API_KEY=your_respan_api_key_here
-RESPAN_BASE_URL=https://api.respan.ai
-```
-
-`RESPAN_BASE_URL` is optional when you use `https://api.respan.ai`, but setting it explicitly keeps local and Vercel environments clear.
+You may set `RESPAN_BASE_URL=https://api.respan.ai` only when you need to point the demo at a different Respan endpoint. Do not rely on `RESPAN_API_KEY` in `.env`, `.env.local`, or Vercel environment variables for the interactive demo; route handlers ignore it.
 
 ### Run Locally
 
@@ -62,30 +57,19 @@ Open `http://localhost:3000` and choose an API section or example card.
 
 ## Deploy to Vercel
 
-### Recommended: Use Respan Gateway Env Vars
-
 1. Create or link a Vercel project from this repo root.
-2. In Vercel Project Settings -> Environment Variables, add:
-   - `RESPAN_API_KEY`
-   - `RESPAN_BASE_URL` set to `https://api.respan.ai` unless you use a custom Respan endpoint
-3. Deploy.
+2. Deploy the app. `OPENAI_API_KEY` is not needed for the included gateway-backed demo routes.
+3. Open the deployed page and enter a Respan API key in the **API keys** panel before running examples or API tests.
 
-Do not add `OPENAI_API_KEY` for the included gateway-backed demo routes. The routes call models through `https://api.respan.ai/api` using `RESPAN_API_KEY`.
+The UI key is sent per request via the `x-respan-api-key` header. If the key is empty, the UI hides run controls and the server routes return `401` without calling Respan.
 
-### Optional: Paste A Key In The UI
-
-The UI has an **API keys (optional)** panel:
-
-- Keys are not persisted; refreshing the page clears them.
-- A pasted Respan key is sent per request via the `x-respan-api-key` header and takes precedence over the server env var.
-- If `RESPAN_API_KEY` is set in Vercel or `.env.local`, routes can run without a pasted UI key.
-
-For production or shared demos, prefer Vercel env vars and keep the UI field empty unless you intentionally want to test a different key.
+You may set `RESPAN_BASE_URL` in Vercel only when using a custom Respan endpoint. Do not use `RESPAN_API_KEY` as a fallback for this demo; browser-driven routes intentionally ignore it.
 
 ## Security Notes
 
 - Never commit secrets. This repo ignores `.env*` via `.gitignore`.
-- UI key inputs are convenient for demos, but they still send secrets to your deployed server. Treat them as sensitive.
+- UI key inputs send secrets to your deployed server on each request. Treat them as sensitive.
+- The interactive demo does not use `RESPAN_API_KEY` from server env vars as a fallback.
 
 ## Project Structure
 
@@ -101,7 +85,7 @@ app/
     prompt-optimizer/
   apis/                      # API explorer UI
   examples/                  # Example showcase UI
-instrumentation.ts           # Respan tracing setup
+instrumentation.ts           # No-op; browser routes require x-respan-api-key
 ```
 
 ## Learn More

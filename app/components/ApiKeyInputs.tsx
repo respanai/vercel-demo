@@ -29,9 +29,9 @@ export function ApiKeyInputs(props: {
     <Card variant="muted" className="mb-12 p-4">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
-          <Label className="block">API keys (optional)</Label>
+          <Label className="block">API keys</Label>
           <p className="text-xs text-gray-600">
-            Not persisted. This field is used first; otherwise routes use <span className="font-bold">RESPAN_API_KEY</span> from Vercel or <span className="font-bold">.env.local</span>.
+            Not persisted. Browser-driven demos require the Respan key typed here; server env files are ignored for demo requests.
           </p>
         </div>
         <Button onClick={() => setShow((s) => !s)} disabled={disabled}>
@@ -71,7 +71,7 @@ export function ApiKeyInputs(props: {
               <Input
                 className="flex-1"
                 type="password"
-                placeholder="(optional)"
+                placeholder="Required to run demos"
                 value={respanApiKey}
                 onChange={(e) => setRespanApiKey(e.target.value)}
                 autoComplete="off"

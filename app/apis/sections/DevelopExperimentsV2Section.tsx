@@ -23,7 +23,7 @@ export function DevelopExperimentsV2Section(props: { respanApiKey: string }) {
     name: "Demo Experiment (vercel-demo)",
     description: "Custom workflow (no LLM calls). Created from /apis.",
     workflows: [{ type: "custom", config: { allow_submission: true, timeout_hours: 24 } }],
-    evaluator_slugs: [],
+    evaluator_workflow_ids: [],
   };
 
   const createDatasetPayload = {

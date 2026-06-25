@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ApiKeyInputs } from "../../components/ApiKeyInputs";
+import { RequireRespanApiKey } from "../../components/RequireRespanApiKey";
 import { CustomerTrackingSection } from "../sections/CustomerTrackingSection";
 import { PLATFORM_URL } from "../../config/site";
 
@@ -47,7 +48,9 @@ export default function CustomerTrackingPage() {
           setRespanApiKey={setRespanApiKey}
         />
 
-        <CustomerTrackingSection respanApiKey={respanApiKey} />
+        <RequireRespanApiKey respanApiKey={respanApiKey}>
+          <CustomerTrackingSection respanApiKey={respanApiKey} />
+        </RequireRespanApiKey>
       </div>
     </div>
   );
